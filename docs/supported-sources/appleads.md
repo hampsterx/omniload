@@ -98,7 +98,7 @@ Report table names support an optional `:granularity:groupBy` suffix to control 
 
 **Granularity constraints** (from [Apple docs](https://developer.apple.com/documentation/apple_ads/reportingrequest)):
 
-| Granularity | Min start date | Max start date |
+| Granularity | Min date range | Max lookback |
 |---|---|---|
 | `hourly` | — | 30 days |
 | `daily` | — | 90 days |
