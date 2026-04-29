@@ -92,8 +92,8 @@ Report tables return performance metrics (impressions, taps, installs, spend, et
 
 Report table names support an optional `:granularity:groupBy` suffix to control time breakdown and dimensional grouping:
 
-- Granularity — hourly, daily, weekly, or monthly.
-- GroupBy — one or more dimensions separated by commas. `campaign_reports` and `ad_group_reports` accept any of `countryOrRegion`, `ageRange`, `gender`, `deviceClass`, `adminArea`, `locality`, `countryCode`. `ad_reports` is restricted to `countryOrRegion` only.
+- Granularity — hourly, daily, weekly, or monthly. When set, date is added to the primary key.
+- GroupBy — one or more dimensions separated by commas. Each dimension is added to the primary key. `campaign_reports` and `ad_group_reports` accept any of `countryOrRegion`, `ageRange`, `gender`, `deviceClass`, `adminArea`, `locality`, `countryCode`. `ad_reports` is restricted to `countryOrRegion` only.
 
 | Granularity | Max start date |
 | :--- | :--- |
