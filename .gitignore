@@ -26,3 +26,4 @@ test.env
 *.log
 .claude
 helper_scripts
+tmp
