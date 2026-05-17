@@ -15,12 +15,9 @@ maintainers = [
 ]
 authors = [
   { name = "Burak Karakan", email = "burak.karakan@getbruin.com" },
-  { name = "İrem Çağın Yurttürk" },
-  { name = "Johannes Brandis" },
   { name = "Mustafa Ersan" },
   { name = "Sanju Shah Gupta" },
   { name = "Saravjeet 'Aman' Singh" },
-  { name = "Tanay Bensu Yurttürk" },
 ]
 requires-python = ">=3.10"
 classifiers = [
