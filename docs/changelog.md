@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/05/17 v0.0.0
+
 - Imported code from [ingestr v0.14.155]
 - Project: Make it a library: Streamlined dependencies, now relaxed and inlined
 - Project: Migrated from Hatch to vanilla setuptools
