@@ -201,7 +201,6 @@ lint.exclude = [
 ]
 
 [tool.pylint]
-master.init-hook = 'import sys; sys.path.append(".")'
 master.disable = [
   "C0103",
   "C0114",
@@ -219,108 +218,110 @@ master.disable = [
   "W0703",
   "W1113",
 ]
+master.extension-pkg-whitelist = "pydantic"
+master.init-hook = 'import sys; sys.path.append(".")'
+master.jobs = 0
 master.max-attributes = 15
 master.max-branches = 15
 master.max-locals = 20
-master.extension-pkg-whitelist = "pydantic"
-master.jobs = 0
 
 [tool.mypy]
-explicit_package_bases = true
 exclude = [
   ".venv",
-  "src/sql_database/.*",
-  "src/mongodb/.*",
-  "src/google_sheets/.*",
-  "src/shopify/.*",
-  "src/gorgias/.*",
-  "src/chess/.*",
-  "src/stripe_analytics/.*",
-  "src/hubspot/.*",
-  "src/airtable/.*",
-  "src/slack/.*",
-  "src/hubspot/.*",
-  "src/facebook_ads/.*",
-  "src/klaviyo/.*",
-  "src/appsflyer/.*",
-  "src/kafka/.*",
   "src/adjust/.*",
+  "src/airtable/.*",
+  "src/appsflyer/.*",
+  "src/asana_source/.*",
+  "src/chess/.*",
+  "src/clickhouse/.*",
+  "src/clickup/.*",
+  "src/dynamodb/.*",
+  "src/facebook_ads/.*",
   "src/filesystem/.*",
-  "src/zendesk/.*",
+  "src/freshdesk/.*",
   "src/github/.*",
   "src/google_analytics/.*",
-  "src/revenuecat/.*",
-  "src/dynamodb/.*",
-  "src/clickhouse/.*",
-  "src/asana_source/.*",
-  "src/tiktok_ads/.*",
-  "src/pipedrive/.*",
-  "src/linear/.*",
-  "src/zoom/.*",
-  "src/clickup/.*",
+  "src/google_sheets/.*",
+  "src/gorgias/.*",
+  "src/hubspot/.*",
+  "src/hubspot/.*",
   "src/influxdb/.*",
-  "src/freshdesk/.*",
+  "src/kafka/.*",
+  "src/klaviyo/.*",
+  "src/linear/.*",
+  "src/mongodb/.*",
+  "src/pipedrive/.*",
+  "src/revenuecat/.*",
+  "src/salesforce/.*",
+  "src/shopify/.*",
+  "src/slack/.*",
+  "src/sql_database/.*",
+  "src/stripe_analytics/.*",
+  "src/tiktok_ads/.*",
   "src/wise/.*",
-  "src/salesforce/.*"
+  "src/zendesk/.*",
+  "src/zoom/.*"
 ]
+namespace_packages = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-follow_imports = "skip"
 module = [
-  "omniload.src.sql_database.*",
-  "omniload.src.mongodb.*",
-  "omniload.src.google_sheets.*",
-  "omniload.src.shopify.*",
-  "omniload.src.gorgias.*",
-  "omniload.src.chess.*",
-  "omniload.src.stripe_analytics.*",
-  "omniload.src.facebook_ads.*",
-  "omniload.src.airtable.*",
-  "omniload.src.slack.*",
-  "omniload.src.hubspot.*",
-  "omniload.src.klaviyo.*",
   "omniload.src.adjust.*",
+  "omniload.src.airtable.*",
   "omniload.src.appsflyer",
-  "omniload.src.filesystem.*",
-  "omniload.src.zendesk.*",
-  "omniload.src.google_analytics.*",
-  "omniload.src.dynamodb.*",
   "omniload.src.asana_source.*",
-  "omniload.src.tiktok_ads.*",
-  "omniload.src.github.*",
+  "omniload.src.chess.*",
   "omniload.src.clickhouse.*",
-  "omniload.src.pipedrive.*",
-  "omniload.src.linear.*",
-  "omniload.src.zoom.*",
   "omniload.src.clickup.*",
-  "omniload.src.influxdb",
+  "omniload.src.dynamodb.*",
+  "omniload.src.facebook_ads.*",
+  "omniload.src.filesystem.*",
   "omniload.src.freshdesk",
-  "omniload.src.wise",
+  "omniload.src.github.*",
+  "omniload.src.google_analytics.*",
+  "omniload.src.google_sheets.*",
+  "omniload.src.gorgias.*",
+  "omniload.src.hubspot.*",
+  "omniload.src.influxdb",
+  "omniload.src.klaviyo.*",
+  "omniload.src.linear.*",
+  "omniload.src.mongodb.*",
+  "omniload.src.pipedrive.*",
   "omniload.src.revenuecat",
   "omniload.src.salesforce",
+  "omniload.src.shopify.*",
+  "omniload.src.slack.*",
+  "omniload.src.sql_database.*",
+  "omniload.src.stripe_analytics.*",
+  "omniload.src.tiktok_ads.*",
+  "omniload.src.wise",
+  "omniload.src.zendesk.*",
+  "omniload.src.zoom.*",
 ]
+follow_imports = "skip"
 
 [tool.pytest]
-# addopts = "-vvv -p no:warnings -rP"
-ini_options.addopts = """
-  -rfEXs -p pytester --strict-markers --verbosity=3
-  --cov --cov-report=term-missing --cov-report=xml
-  --numprocesses auto
-  """
 ini_options.minversion = "2.0"
-ini_options.log_level = "DEBUG"
-ini_options.log_cli_level = "DEBUG"
-ini_options.log_format = "%(asctime)-15s [%(name)-36s] %(levelname)-8s: %(message)s"
+ini_options.testpaths = [
+  "examples",
+  "omniload",
+  "tests",
+]
 ini_options.pythonpath = [
   ".",
 ]
-ini_options.testpaths = [
-  "examples",
-  "tests",
-  "omniload",
-]
-ini_options.xfail_strict = true
+# addopts = "-vvv -p no:warnings -rP"
+ini_options.addopts = """
+  -rfEXsS -p pytester --strict-markers --verbosity=3
+  --cov --cov-report=term-missing --cov-report=xml
+  --numprocesses auto
+  """
 ini_options.markers = []
+ini_options.xfail_strict = true
+ini_options.log_format = "%(asctime)-15s [%(name)-36s] %(levelname)-8s: %(message)s"
+ini_options.log_level = "DEBUG"
+ini_options.log_cli_level = "DEBUG"
 
 [tool.coverage]
 run.omit = [ "*_test.py" ]
