@@ -8,6 +8,7 @@ import os
 import random
 import shutil
 import string
+import subprocess
 import sys
 import tempfile
 import time
@@ -200,13 +201,10 @@ def invoke_ingest_command(
 
         return result
 
-    import subprocess
-    import sys
-
     cmd = [sys.executable, "-m", "omniload.main"] + args
     env = os.environ.copy()
 
-    process = subprocess.run(cmd, input="y\n", text=True, capture_output=True, env=env)
+    process = subprocess.run(cmd, text=True, capture_output=True, env=env)
 
     # Create a result object similar to what CliRunner returns
     class Result:
