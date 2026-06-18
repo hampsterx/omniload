@@ -2,6 +2,8 @@
 
 ## in progress
 
+- CI: Validated support on Python 3.15
+
 ## 2026/06/19 v0.1.0
 
 - Dependencies: Permitted installation of SQLAlchemy 2.0
