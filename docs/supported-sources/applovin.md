@@ -1,7 +1,7 @@
 # Applovin
 [AppLovin](https://www.applovin.com/) Corporation is an American mobile technology company headquartered in Palo Alto, California. AppLovin enables developers of all sizes to market, monetize, analyze and publish their apps through its mobile advertising, marketing, and analytics platforms MAX, AppDiscovery, and SparkLabs.
 
-`omniload` allows ingesting data from [AppDiscovery reporting API](https://developers.applovin.com/en/app-discovery/api/reporting-api/)
+`omniload` allows ingesting data from [AppDiscovery reporting API](https://support.applovin.com/en/growth/promoting-your-apps/api/reporting-api)
 
 ## URI Format
 
