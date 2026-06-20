@@ -7,9 +7,10 @@ import pendulum
 from dlt.common.time import ensure_pendulum_datetime
 from dlt.common.typing import TDataItem
 from dlt.sources import DltResource
-from intuitlib.client import AuthClient  # type: ignore
+from intuitlib.client import AuthClient
+from pendulum import DateTime
 
-from quickbooks import QuickBooks  # type: ignore
+from quickbooks import QuickBooks
 
 
 @dlt.source(name="quickbooks", max_table_nesting=0)
@@ -64,10 +65,10 @@ def quickbooks_source(
 
     def fetch_object(
         obj_name: str,
-        updated_at: dlt.sources.incremental[str] = dlt.sources.incremental(
+        updated_at: dlt.sources.incremental[DateTime] = dlt.sources.incremental(
             "lastupdatedtime",
-            initial_value=start_date,  # type: ignore
-            end_value=end_date,  # type: ignore
+            initial_value=start_date,
+            end_value=end_date,
             range_start="closed",
             range_end="closed",
             allow_external_schedulers=True,

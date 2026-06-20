@@ -1,4 +1,5 @@
 import unittest
+from typing import Any
 from unittest.mock import patch
 
 import dlt
@@ -6,7 +7,7 @@ import pendulum
 import pytest
 from dlt.sources.credentials import ConnectionStringCredentials
 
-from omniload.src import sources
+import omniload.src.adjust
 from omniload.src.sources import AdjustSource, FluxxSource, MongoDbSource, SqlSource
 
 
@@ -78,7 +79,7 @@ class SqlSourceTest(unittest.TestCase):
         table = "schema.table"
 
         # Track the URI that gets passed to sql_table
-        captured_uri = None
+        captured_uri: str = ""
 
         def sql_table(
             credentials: ConnectionStringCredentials,
@@ -114,7 +115,7 @@ class SqlSourceTest(unittest.TestCase):
         table = "schema.table"
 
         # Track the URI that gets passed to sql_table
-        captured_uri = None
+        captured_uri: str = ""
 
         def sql_table(
             credentials: ConnectionStringCredentials,
@@ -179,7 +180,30 @@ class MongoDbSourceTest(unittest.TestCase):
         self.assertIsNotNone(res)
 
 
+@pytest.fixture(scope="function")
+def monkeypatch_provider(request, monkeypatch):
+    """
+    Provide a pytest fixture to a unittest-based class.
+    """
+    request.cls.monkeypatch = monkeypatch
+
+
+@pytest.fixture(scope="class")
+def monkeymodule(request):
+    """
+    Enable patching a function at module scope.
+    https://stackoverflow.com/a/74659732
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        request.cls.monkeymodule = mp
+
+
+@pytest.mark.usefixtures("monkeypatch_provider")
+# @pytest.mark.usefixtures("monkeymodule")
 class AdjustSourceTest(unittest.TestCase):
+    monkeypatch: Any
+    # monkeymodule: Any
+
     def test_table_instance_is_created(self):
         uri = "adjust://?api_key=my-api-key"
         table = "creatives"
@@ -193,7 +217,7 @@ class AdjustSourceTest(unittest.TestCase):
             self.assertIsNone(dimensions)
             self.assertIsNone(metrics)
             self.assertIsNone(merge_key)
-            self.assertEqual(filters, [])
+            self.assertEqual(filters, {})
 
             # ensure the lookback days is 30
             self.assertEqual(
@@ -209,7 +233,7 @@ class AdjustSourceTest(unittest.TestCase):
 
             return creatives
 
-        sources.adjust_source = adjust
+        self.monkeypatch.setattr(omniload.src.adjust, "adjust_source", adjust)
         source = AdjustSource()
         res = source.dlt_source(
             uri, table, interval_start="2024-11-05", interval_end="2024-11-12"
@@ -229,14 +253,14 @@ class AdjustSourceTest(unittest.TestCase):
             self.assertEqual(dimensions, ["hour", "day"])
             self.assertEqual(metrics, ["impressions", "cost"])
             self.assertIsNone(merge_key)
-            self.assertEqual(filters, [])
+            self.assertEqual(filters, {})
 
             def custom():
                 return dlt.resource()
 
             return custom
 
-        sources.adjust_source = adjust
+        self.monkeypatch.setattr(omniload.src.adjust, "adjust_source", adjust)
         source = AdjustSource()
         res = source.dlt_source(uri, table)
         self.assertIsNotNone(res)
@@ -268,7 +292,7 @@ class AdjustSourceTest(unittest.TestCase):
 
             return custom
 
-        sources.adjust_source = adjust
+        self.monkeypatch.setattr(omniload.src.adjust, "adjust_source", adjust)
         source = AdjustSource()
         res = source.dlt_source(uri, table)
         self.assertIsNotNone(res)

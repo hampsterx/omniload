@@ -14,8 +14,8 @@
 
 from typing import Any, Dict, List, Optional, cast
 
-from confluent_kafka import Consumer, Message, TopicPartition  # type: ignore
-from confluent_kafka.admin import TopicMetadata  # type: ignore
+from confluent_kafka import Consumer, Message, TopicPartition
+from confluent_kafka.admin import TopicMetadata
 from dlt import config
 from dlt.common import pendulum
 from dlt.common.configuration import configspec
@@ -77,7 +77,7 @@ def default_msg_processor(msg: Message) -> Dict[str, Any]:
     }
 
 
-class OffsetTracker(dict):  # type: ignore
+class OffsetTracker(dict):
     """Object to control offsets of the given topics.
 
     Tracks all the partitions of the given topics with two params:
@@ -96,7 +96,7 @@ class OffsetTracker(dict):  # type: ignore
         consumer: Consumer,
         topic_names: List[str],
         pl_state: DictStrAny,
-        start_from: pendulum.DateTime = None,  # type: ignore
+        start_from: Optional[pendulum.DateTime] = None,
     ):
         super().__init__()
 
@@ -130,7 +130,9 @@ class OffsetTracker(dict):  # type: ignore
 
         return tracked_topics
 
-    def _init_partition_offsets(self, start_from: pendulum.DateTime) -> None:
+    def _init_partition_offsets(
+        self, start_from: Optional[pendulum.DateTime] = None
+    ) -> None:
         """Designate current and maximum offsets for every partition.
 
         Current offsets are read from the state, if present. Set equal

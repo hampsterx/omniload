@@ -1,10 +1,12 @@
 from typing import Iterable
 
 import dlt
-import smartsheet  # type: ignore
+import smartsheet
 from dlt.extract import DltResource
-from smartsheet.models.enums import ColumnType  # type: ignore
-from smartsheet.models.sheet import Sheet  # type: ignore
+from smartsheet.models.enums import ColumnType
+from smartsheet.models.sheet import Sheet
+
+from omniload.src.errors import ProcessingError
 
 TYPE_MAPPING = {
     ColumnType.TEXT_NUMBER: "text",
@@ -48,9 +50,15 @@ def smartsheet_source(
     sheet_details = smartsheet_client.Sheets.get_sheet(
         sheet_id_int, include=["objectValue"]
     )
+    if isinstance(sheet_details, smartsheet.models.Error):
+        raise ProcessingError(str(sheet_details), "Smartsheets")
+
     sheet_name = sheet_details.name
     resource_name = f"sheet_{sheet_name.replace(' ', '_').lower()}"
     sheet = smartsheet_client.Sheets.get_sheet(sheet_id_int)
+
+    if isinstance(sheet, smartsheet.models.Error):
+        raise ProcessingError(str(sheet), "Smartsheets")
 
     yield dlt.resource(
         _get_sheet_data(sheet),

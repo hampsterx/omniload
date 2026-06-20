@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from .main_test import DESTINATIONS, SOURCES  # type: ignore
+from .main_test import DESTINATIONS, SOURCES
 
 
 def pytest_configure(config):
@@ -38,7 +38,7 @@ def start_containers(config):
 
     unique_containers = set(SOURCES.values()) | set(DESTINATIONS.values())
     for container in unique_containers:
-        container.container_lock_dir = config.shared_directory
+        container.container_lock_dir = config.shared_directory  # ty: ignore[invalid-assignment]
 
     with ThreadPoolExecutor() as executor:
         for container in unique_containers:

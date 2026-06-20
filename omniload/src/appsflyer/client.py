@@ -1,8 +1,10 @@
-from typing import Optional
+from typing import Optional, cast
 
 import requests
 from dlt.sources.helpers.requests import Client
 from requests.exceptions import HTTPError
+
+from omniload.src.errors import MissingValueError
 
 
 class AppsflyerClient:
@@ -18,12 +20,16 @@ class AppsflyerClient:
 
     def _fetch_data(
         self,
-        from_date: str,
-        to_date: str,
+        from_date: Optional[str],
+        to_date: Optional[str],
         dimensions: list[str],
         metrics: list[str],
         maximum_rows=1000000,
     ):
+        if from_date is None:
+            raise MissingValueError("from_date", "Appsflyer")
+        if to_date is None:
+            raise MissingValueError("to_date", "Appsflyer")
         excluded_metrics = exclude_metrics_for_date_range(metrics, from_date, to_date)
         included_metrics = [
             metric for metric in metrics if metric not in excluded_metrics
@@ -101,7 +107,9 @@ def exclude_metrics_for_date_range(
     import pendulum
 
     excluded_metrics = []
-    days_between_today_and_end = (pendulum.now() - pendulum.parse(to_date)).days  # type: ignore
+    days_between_today_and_end = (
+        pendulum.now() - cast(pendulum.DateTime, pendulum.parse(to_date))
+    ).days
     for metric in metrics:
         if "cohort_day_" in metric:
             day_count = int(metric.split("_")[2])

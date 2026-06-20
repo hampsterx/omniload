@@ -7,12 +7,14 @@ import os
 import shutil
 import struct
 import tempfile
+from typing import Optional, cast
 from urllib.parse import parse_qs, quote, urlparse
 
 import dlt
 import dlt.destinations.impl.filesystem.filesystem
 import requests
 from dlt.common.configuration.specs import AwsCredentials
+from dlt.common.destination import PreparedTableSchema
 from dlt.common.destination.capabilities import DestinationCapabilitiesContext
 from dlt.common.schema import Schema
 from dlt.common.storages.configuration import FileSystemCredentials
@@ -222,7 +224,7 @@ def build_mssql_dest():
             ):
                 return super().open_connection()
 
-            import pyodbc  # type: ignore
+            import pyodbc
 
             dsn = ";".join(
                 [f"{k}={v}" for k, v in cfg.items() if k not in self.SKIP_CREDENTIALS]
@@ -513,7 +515,8 @@ class CsvDestination(GenericSqlDestination):
                     )
                     csv_writer.writeheader()
                 elif new_fields:
-                    csv_file.close()
+                    if csv_file is not None:
+                        csv_file.close()
                     _rewrite_csv_with_fieldnames(output_path, list(fieldnames))
                     csv_file = open(output_path, "a", newline="")
                     csv_writer = csv.DictWriter(
@@ -561,7 +564,7 @@ class AthenaDestination:
         region_name = source_params.get("region_name", [None])[0]
 
         if not access_key_id and not secret_access_key:
-            import botocore.session  # type: ignore
+            import botocore.session
 
             session = botocore.session.Session(profile=profile_name)
             default = session.get_credentials()
@@ -760,7 +763,10 @@ class TrinoTypeMapper:
         class CustomTrinoTypeMapper(SqlalchemyTypeMapper):
             """Custom type mapper that converts unsupported Trino types."""
 
-            def to_destination_type(self, column, table=None):
+            def to_destination_type(
+                self, column, table: Optional[PreparedTableSchema] = None
+            ):
+                table: PreparedTableSchema = cast(PreparedTableSchema, table)
                 # Handle special cases before calling parent
                 data_type = column.get("data_type", "")
 

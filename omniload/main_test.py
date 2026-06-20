@@ -17,34 +17,34 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlparse
 
 import duckdb
 import numpy as np
-import pandas as pd  # type: ignore
+import pandas as pd
 import pendulum
-import pyarrow as pa  # type: ignore
-import pyarrow.csv  # type: ignore
-import pyarrow.ipc as ipc  # type: ignore
-import pyarrow.parquet as pya_parquet  # type: ignore
+import pyarrow as pa
+import pyarrow.csv
+import pyarrow.ipc as ipc
+import pyarrow.parquet as pya_parquet
 import pytest
 import requests
 import sqlalchemy
-from confluent_kafka import Producer  # type: ignore
+from confluent_kafka import Producer
 from dlt.sources.filesystem import glob_files
 from elasticsearch import Elasticsearch
-from fsspec.implementations.memory import MemoryFileSystem  # type: ignore
+from fsspec.implementations.memory import MemoryFileSystem
 from sqlalchemy.pool import NullPool
-from testcontainers.clickhouse import ClickHouseContainer  # type: ignore
-from testcontainers.core.container import DockerContainer  # type: ignore
-from testcontainers.core.waiting_utils import wait_for_logs  # type: ignore
-from testcontainers.kafka import KafkaContainer  # type: ignore
-from testcontainers.localstack import LocalStackContainer  # type: ignore
-from testcontainers.mongodb import MongoDbContainer  # type: ignore
-from testcontainers.mysql import MySqlContainer  # type: ignore
-from testcontainers.postgres import PostgresContainer  # type: ignore
+from testcontainers.clickhouse import ClickHouseContainer
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.waiting_utils import wait_for_logs
+from testcontainers.kafka import KafkaContainer
+from testcontainers.localstack import LocalStackContainer
+from testcontainers.mongodb import MongoDbContainer
+from testcontainers.mysql import MySqlContainer
+from testcontainers.postgres import PostgresContainer
 from typer.testing import CliRunner
 
 from omniload.main import app
@@ -193,10 +193,12 @@ def invoke_ingest_command(
         result = CliRunner().invoke(
             app,
             args,
-            input="y\n",
         )
         if result.exit_code != 0 and print_output:
-            traceback.print_exception(*result.exc_info)
+            if result.exc_info is not None:
+                traceback.print_exception(*result.exc_info)
+            else:
+                raise RuntimeError(f"Command failed with output: {result.stdout}")
 
         return result
 
@@ -737,9 +739,9 @@ class CouchbaseContainer(DockerContainer):
         """Insert documents using Couchbase Python SDK from test machine."""
         from datetime import timedelta
 
-        from couchbase.auth import PasswordAuthenticator  # type: ignore
-        from couchbase.cluster import Cluster  # type: ignore
-        from couchbase.options import ClusterOptions  # type: ignore
+        from couchbase.auth import PasswordAuthenticator
+        from couchbase.cluster import Cluster
+        from couchbase.options import ClusterOptions
 
         # Connect using SDK (from test machine to container)
         auth = PasswordAuthenticator(self.username, self.password)
@@ -801,7 +803,7 @@ DESTINATIONS = {
 
 if sys.platform == "linux":
     # [unixODBC][Driver Manager] Can't open lib 'ODBC Driver 18 for SQL Server' : file not found (0) (SQLDriverConnect)
-    from testcontainers.mssql import SqlServerContainer  # type: ignore
+    from testcontainers.mssql import SqlServerContainer
 
     SOURCES.update(
         {
@@ -818,7 +820,7 @@ if sys.platform == "linux":
 def manage_containers(request, shared_directory):
     unique_containers = set(SOURCES.values()) | set(DESTINATIONS.values())
     for container in unique_containers:
-        container.container_lock_dir = shared_directory
+        container.container_lock_dir = shared_directory  # ty: ignore[invalid-assignment]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -3222,7 +3224,7 @@ def appstore_test_cases() -> Iterable[Callable]:
         dest_conn = dest_engine.connect()
         count = dest_conn.exec_driver_sql(
             f"select count(*) from {dest_table}"
-        ).fetchone()[0]
+        ).scalar_one()
         dest_engine.dispose()
         assert count == 3
 
@@ -3327,7 +3329,7 @@ def appstore_test_cases() -> Iterable[Callable]:
         with dest_engine.connect() as dest_conn:
             count = dest_conn.exec_driver_sql(
                 f"select count(*) from {dest_table}"
-            ).fetchone()[0]
+            ).scalar_one()
         dest_engine.dispose()
         assert count == 3
 
@@ -3356,7 +3358,7 @@ def appstore_test_cases() -> Iterable[Callable]:
         with dest_engine.connect() as dest_conn:
             count = dest_conn.exec_driver_sql(
                 f"select count(*) from {dest_table}"
-            ).fetchone()[0]
+            ).scalar_one()
             assert count == 6
             assert (
                 len(
@@ -4018,7 +4020,7 @@ def appsflyer_test_cases():
             assert len(res) > 0
             columns = [
                 col[0]
-                for col in conn.exec_driver_sql(
+                for col in conn.exec_driver_sql(  # ty: ignore[unresolved-attribute, unused-ignore-comment, unused-ignore-comment]
                     f"select * from {schema_rand_prefix}.creatives limit 0"
                 ).cursor.description
             ]
@@ -4064,7 +4066,7 @@ def appsflyer_test_cases():
             assert len(res) > 0
             columns = [
                 col[0]
-                for col in conn.exec_driver_sql(
+                for col in conn.exec_driver_sql(  # ty: ignore[unresolved-attribute, unused-ignore-comment, unused-ignore-comment]
                     f"select * from {schema_rand_prefix}.campaigns limit 0"
                 ).cursor.description
             ]
@@ -4118,7 +4120,7 @@ def appsflyer_test_cases():
             assert len(res) > 0
             columns = [
                 col[0]
-                for col in conn.exec_driver_sql(
+                for col in conn.exec_driver_sql(  # ty: ignore[unresolved-attribute, unused-ignore-comment, unused-ignore-comment]
                     f"select * from {schema_rand_prefix}.custom limit 0"
                 ).cursor.description
             ]
@@ -4865,6 +4867,7 @@ def test_stripe_source_full_refresh(stripe_table):
     # Verify data was loaded
     conn = duckdb.connect(abs_db_path)
     res = conn.sql(f"select count(*) from raw.{stripe_table}s").fetchone()
+    assert res, "Database result is empty"
     assert res[0] > 0, f"No {stripe_table} records found"
 
     # Clean up
@@ -4905,6 +4908,7 @@ def test_stripe_source_incremental(stripe_table):
     # Verify data was loaded
     conn = duckdb.connect(abs_db_path)
     res = conn.sql(f"select count(*) from raw.{stripe_table}s").fetchone()
+    assert res, "Database result is empty"
     assert res[0] > 0, f"No {stripe_table} records found"
 
     # Clean up
@@ -5882,7 +5886,7 @@ def test_hostaway_source_full_refresh(hostaway_table):
 
     conn = duckdb.connect(abs_db_path)
     result = conn.sql(f"select count(*) from raw.{hostaway_table}").fetchone()
-    assert result is not None
+    assert result is not None, "Database result is empty"
 
     conn.close()
     try:
@@ -6257,11 +6261,16 @@ def test_csv_to_elasticsearch_cloud():
         parsed = urlparse(es_cloud_url.replace("elasticsearch://", "https://"))
         username = parsed.username
         password = parsed.password
+        credentials: Union[Tuple[str, str], None]
+        if username and password:
+            credentials = (username, password)
+        else:
+            credentials = None
         host = parsed.hostname
         port = parsed.port if parsed.port else 443
 
         es_url = f"https://{host}:{port}"
-        es_client = Elasticsearch([es_url], basic_auth=(username, password))
+        es_client = Elasticsearch([es_url], basic_auth=credentials)
 
         # Wait for indexing
         es_client.indices.refresh(index="OMNILOAD_test_cloud_index")
@@ -6290,11 +6299,16 @@ def test_csv_to_elasticsearch_cloud():
             parsed = urlparse(es_cloud_url.replace("elasticsearch://", "https://"))
             username = parsed.username
             password = parsed.password
+            credentials: Union[Tuple[str, str], None]
+            if username and password:
+                credentials = (username, password)
+            else:
+                credentials = None
             host = parsed.hostname
             port = parsed.port if parsed.port else 443
 
             es_url = f"https://{host}:{port}"
-            es_client = Elasticsearch([es_url], basic_auth=(username, password))
+            es_client = Elasticsearch([es_url], basic_auth=credentials)
             if es_client.indices.exists(index="OMNILOAD_test_cloud_index"):
                 es_client.indices.delete(index="OMNILOAD_test_cloud_index")
         except Exception:
@@ -6374,9 +6388,11 @@ def test_snapchat_ads_merge_strategy():
         print(f"\n✓ Columns after first ingest: {column_names}")
 
         # Get total count
-        first_ingest_total = conn.execute(
+        result = conn.execute(
             "SELECT COUNT(*) FROM snapchat_ads.campaigns_stats"
-        ).fetchone()[0]
+        ).fetchone()
+        assert result is not None, "Database result is empty"
+        first_ingest_total = result[0]
 
         assert first_ingest_total > 0, "First ingest should have data"
 
@@ -6391,6 +6407,7 @@ def test_snapchat_ads_merge_strategy():
                 "COUNT(CASE WHEN adsquad_id IS NULL THEN 1 END) as null_adsquad_ids "
                 "FROM snapchat_ads.campaigns_stats"
             ).fetchone()
+            assert result is not None, "Database result is empty"
             first_ingest_null_ad_ids = result[0]
             print(
                 f"✓ First ingest: {first_ingest_total} records with NULL ad_id and adsquad_id"
@@ -6424,6 +6441,7 @@ def test_snapchat_ads_merge_strategy():
             "COUNT(CASE WHEN ad_id IS NOT NULL THEN 1 END) as non_null_ad_ids "
             "FROM snapchat_ads.campaigns_stats"
         ).fetchone()
+        assert result is not None, "Database result is empty"
         total_records = result[0]
         null_ad_ids = result[1]
         non_null_ad_ids = result[2]
@@ -6525,7 +6543,7 @@ def test_linkedin_ads_source_full_refresh(linkedin_ads_table):
 
     conn = duckdb.connect(abs_db_path)
     result = conn.sql(f"select count(*) from raw.{linkedin_ads_table}").fetchone()
-    assert result is not None
+    assert result is not None, "Database result is empty"
 
     conn.close()
     try:
