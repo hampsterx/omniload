@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/06/21 v0.2.0
+
 - Kafka: Expanded `default_msg_processor` into a miniature decoding unit
 - dlt: Migrated from `ensure_pendulum_datetime` to `ensure_pendulum_datetime_utc`
 
