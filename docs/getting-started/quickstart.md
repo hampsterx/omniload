@@ -72,7 +72,7 @@ duckdb -ui ./chess.duckdb
 
 ## Supported sources & destinations
 
-See the Supported Sources & Destinations page for a list of all supported sources and destinations.
+See the [Supported Sources & Destinations](/supported-sources/index.md) page for a list of all supported sources and destinations.
 
 
 [uv]: https://docs.astral.sh/uv/

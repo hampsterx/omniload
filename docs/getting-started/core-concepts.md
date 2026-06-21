@@ -16,7 +16,7 @@ postgresql://admin:admin@localhost:8837/web?sslmode=disable
 ```
 
 The URI is composed of the following parts:
-- `postgresql`: the name of the database
+- `postgresql`: the scheme, identifying the source or destination type (here, a PostgreSQL database)
 - `admin:admin`: the username and password
 - `localhost:8837`: the host and port
 - `web`: the database name

@@ -48,7 +48,7 @@ Creates a SHA-256 hash of the value. Consistent across runs - the same input alw
 **Use cases:** Creating anonymous identifiers, consistent tokenization
 ```bash
 --mask "user_id:hash"
-# john.doe@example.com → a94a8fe5ccb19ba61c4c0873d391e987982fbbd3
+# john.doe@example.com → 836f82db99121b3481011f16b49dfa5fbc714a0d1b1b9f784a1ebbbf5b39577f
 ```
 
 #### `md5`
