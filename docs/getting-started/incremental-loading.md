@@ -26,7 +26,7 @@ The following example below will replace the entire `my_schema.some_data` table 
 omniload ingest \
     --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
     --source-table 'my_schema.some_data' \
-    --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json' \
+    --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json'
 ```
 
 Here's how the replace strategy works:
@@ -46,7 +46,7 @@ omniload ingest \
     --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
     --source-table 'my_schema.some_data' \
     --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json' \
-    --incremental-strategy append
+    --incremental-strategy append \
     --incremental-key updated_at
 ```
 
@@ -71,7 +71,7 @@ The first time you run the command, it will ingest all the rows into the destina
 When there's no new data in the source table, the destination table will remain the same.
 
 #### Third Ingestion, new data
-Let's say John changed his name to Johnny, and Jane's `updated_at` was updated to `2021-01-02`, e.g. your source:
+Let's say John changed his name to Johnny, e.g. your source:
 
 | id | name   | updated_at |
 |----|--------|------------|
@@ -104,8 +104,8 @@ omniload ingest \
     --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
     --source-table 'my_schema.some_data' \
     --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json' \
-    --incremental-strategy merge
-    --incremental-key updated_at
+    --incremental-strategy merge \
+    --incremental-key updated_at \
     --primary-key id
 ```
 
@@ -171,7 +171,7 @@ omniload ingest \
     --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
     --source-table 'my_schema.some_data' \
     --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json' \
-    --incremental-strategy delete+insert
+    --incremental-strategy delete+insert \
     --incremental-key updated_at
 ```
 
