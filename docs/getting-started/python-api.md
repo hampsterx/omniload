@@ -128,4 +128,4 @@ pip install 'omniload[full]==0.0.42'
 ```
 
 
-[`LoadInfo`]: https://dlthub.com/docs/general-usage/pipeline#inspect-a-load-process
+[`LoadInfo`]: https://dlthub.com/docs/walkthroughs/run-a-pipeline#4-inspect-a-load-process
