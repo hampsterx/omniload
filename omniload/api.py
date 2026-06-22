@@ -23,7 +23,8 @@ if TYPE_CHECKING:
 
 # https://dlthub.com/docs/dlt-ecosystem/file-formats/parquet#supported-destinations
 PARQUET_SUPPORTED_DESTINATIONS = [
-    "athenabigquery",
+    "athena",
+    "bigquery",
     "duckdb",
     "snowflake",
     "databricks",

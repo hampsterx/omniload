@@ -23,7 +23,8 @@ info = run_ingest(
 print(info)  # a dlt LoadInfo describing the load
 ```
 
-`run_ingest` returns the dlt [`LoadInfo`] for the run. The keyword arguments map
+`run_ingest` returns the dlt [`LoadInfo`] for the run, or `None` when
+`dry_run=True`. The keyword arguments map
 one-to-one to the `omniload ingest` command-line options (`--source-uri` becomes
 `source_uri`, and so on), and the defaults are identical.
 
