@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/06/24 v0.3.0
+
 - Feature: Added embeddable `run_ingest()` Python API. Thanks, @hampsterx.
 - Dependencies: Updated to dlt v1.28
 - Dependencies: Updated to clickhouse-connect v1
