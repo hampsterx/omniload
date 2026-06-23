@@ -1,6 +1,6 @@
 # Slack
 
-[Slack](https://www.Slack.com/) is a messaging platform for teams and organizations where they can collaborate, share ideas and information.
+[Slack](https://www.slack.com/) is a messaging platform for teams and organizations where they can collaborate, share ideas and information.
 
 omniload supports Slack as a source.
 
@@ -37,10 +37,10 @@ Slack source allows ingesting the following sources into separate tables:
 
 | Table | PK | Inc Key | Inc Strategy | Details |
 |-------|----|---------|--------------|---------|
-| [channels](https://api.slack.com/methods/conversations.list) | id | - | replace | Retrieves information about all the channels |
-| [users](https://api.slack.com/methods/users.list) | id | - | replace | Retrieves all the users|
-| [messages:chan1,chan2](https://api.slack.com/methods/conversations.history) | ts | ts | append/merge | Retrieves messages from specified channels (e.g., general, memes). Multiple channels can be listed separated by commas |
-| [access_logs](https://api.slack.com/methods/team.accessLogs) | user_id | - | append | Retrieves access logs|
+| [channels](https://docs.slack.dev/reference/methods/conversations.list/) | id | - | replace | Retrieves information about all the channels |
+| [users](https://docs.slack.dev/reference/methods/users.list/) | id | - | replace | Retrieves all the users|
+| [messages:chan1,chan2](https://docs.slack.dev/reference/methods/conversations.history/) | ts | ts | append/merge | Retrieves messages from specified channels (e.g., general, memes). Multiple channels can be listed separated by commas |
+| [access_logs](https://docs.slack.dev/reference/methods/team.accessLogs/) | user_id | - | append | Retrieves access logs|
 
 
 Use these as `--source-table` parameter in the `omniload ingest` command.
