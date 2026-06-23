@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: false
+  auto_review:
+    # Disabled to conserve CodeRabbit's limited OSS review cycles; matches the
+    # panodata org-wide setting. Trigger reviews on demand with `@coderabbitai
+    # review` or the "Please review now!" checkbox.
+    enabled: false
+    drafts: true
+  path_filters:
+    - "!**/*.lock"
+    - "!docs/_build/**"
+  path_instructions:
+    - path: "omniload/**/*.py"
+      instructions: >-
+        Keep heavy/optional imports lazy (inside the function that needs them) so
+        the CLI stays fast; this is a deliberate pattern, not an oversight. Line
+        length is intentionally unbounded (ruff E501 is disabled). Type checking
+        is `ty` (Astral), not mypy.
+    - path: "tests/**/test_*.py"
+      instructions: >-
+        Tests live in a dedicated `tests/` tree (`tests/main/` for core/unit,
+        `tests/saas/` for SaaS integration), named `test_*.py`. Prefer flagging
+        missing edge-case coverage over style nits.
+  tools:
+    ruff:
+      enabled: true
+
+chat:
+  auto_reply: true
