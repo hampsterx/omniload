@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/06/25 v0.4.0
+
 - Maintenance: Refactored module namespace. If you are using omniload
   as a library, this introduces many breaking changes. However, the new
   layout is much more ergonomic.
