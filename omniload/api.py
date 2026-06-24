@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from omniload.src.errors import IngestJobError, ValidationError
+from omniload.error import IngestJobError, ValidationError
 
 if TYPE_CHECKING:
     from dlt.common.pipeline import LoadInfo
@@ -145,18 +145,19 @@ def run_ingest(
     from dlt.common.schema.typing import TColumnSchema
     from dlt.pipeline.exceptions import PipelineStepFailed
 
-    import omniload.src.partition as partition
-    import omniload.src.resource as resource
-    from omniload.src.collector.spinner import SpinnerCollector
-    from omniload.src.destinations import AthenaDestination, ClickhouseDestination
-    from omniload.src.factory import SourceDestinationFactory
-    from omniload.src.filters import (
+    import omniload.core.resource as resource
+    from omniload.codec import hint
+    from omniload.codec.filter import (
         cast_set_to_list,
         cast_spanner_types,
         create_masking_filter,
         handle_mysql_empty_dates,
     )
-    from omniload.src.sources import MongoDbSource
+    from omniload.core.factory import SourceDestinationFactory
+    from omniload.source.mongodb.api import MongoDbSource
+    from omniload.target.athena import AthenaDestination
+    from omniload.target.clickhouse import ClickhouseDestination
+    from omniload.util.spinner import SpinnerCollector
 
     incremental_strategy = _coerce(incremental_strategy, IncrementalStrategy)
     progress = _coerce(progress, Progress)
@@ -428,7 +429,7 @@ def run_ingest(
         # https://github.com/dlt-hub/dlt/issues/2248
         # TODO(turtledev): only apply for write dispositions that actually cause an exception.
         # TODO(turtledev): make batch size configurable
-        import omniload.src.arrow as arrow
+        import omniload.source.arrow.adapter as arrow
 
         resource.for_each(dlt_source, lambda x: x.add_map(arrow.as_list))
 
@@ -440,7 +441,7 @@ def run_ingest(
         resource.for_each(dlt_source, lambda x: x.add_limit(yield_limit))
 
     if isinstance(source, MongoDbSource):
-        from omniload.src.resource import TypeHintMap
+        from omniload.core.resource import TypeHintMap
 
         resource.for_each(dlt_source, lambda x: x.add_map(TypeHintMap().type_hint_map))
 
@@ -451,7 +452,7 @@ def run_ingest(
     resource.for_each(dlt_source, col_h)
 
     if isinstance(destination, AthenaDestination) and partition_by:
-        partition.apply_athena_hints(dlt_source, partition_by, column_hints)
+        hint.apply_athena_hints(dlt_source, partition_by, column_hints)
 
     if isinstance(destination, ClickhouseDestination):
         from dlt.destinations.adapters import clickhouse_adapter
