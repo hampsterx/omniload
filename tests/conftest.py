@@ -60,8 +60,12 @@ def _docker_available():
 
 
 def _integration_deselected(config):
-    # `-m "not integration"` -> don't bother booting the DB matrix.
-    return "not integration" in (config.option.markexpr or "")
+    # Skip the DB-matrix boot only for the canonical `-m "not integration"`
+    # (what `poe test-fast` runs). Match exactly rather than by substring: a
+    # compound expression like `not integration or smoke` *can* still select
+    # integration-marked tests, and a wrong skip would fail them, while a missed
+    # skip merely wastes boot time. So anything fancier errs toward booting.
+    return (config.option.markexpr or "").strip() == "not integration"
 
 
 def _skip_containers(config):
