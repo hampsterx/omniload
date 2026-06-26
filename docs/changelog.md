@@ -2,6 +2,8 @@
 
 ## in progress
 
+- Connector: Added source and target adapters for the Delta Lake table format
+
 ## 2026/08/27 v0.13.0
 
 - mq-bridge: Require mq-bridge-py 0.4.7 (was 0.3.2) and add three transports:
