@@ -157,6 +157,13 @@ optional-dependencies.release = [
   "build<2",
   "twine<7",
 ]
+# Transform engines for the codec reshape lanes (issue #112 harness). jq runs via
+# tikray (which bundles the `jq` bindings); the batch lane runs compiled Polars via
+# macropipe (which pulls in `polars`).
+optional-dependencies.reshape = [
+  "macropipe<1",
+  "tikray<1",
+]
 optional-dependencies.test = [
   "boto3<2",
   "pendulum[test]>=3,<4",

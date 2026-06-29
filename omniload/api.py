@@ -320,7 +320,25 @@ def run_ingest(**kwargs) -> LoadInfo | None:
     if sql_backend == SqlBackend.default:
         sql_backend = SqlBackend.pyarrow
 
-    dlt_source = source.dlt_source(
+    # Build the reshape mapper before the source: a batch (polars) reshape consumes Arrow
+    # tables, so the source has to be told to deliver Arrow. Per-row reshapes don't care.
+    reshape_mapper = None
+    if jr.reshape:
+        from omniload.codec.reshape import create_reshape_mapper
+
+        # A bad spec (unknown engine, empty recipes) or a missing extra is user/config
+        # error: surface it as ValidationError so the CLI reports it instead of tracebacking.
+        try:
+            reshape_mapper = create_reshape_mapper(jr.reshape)
+        except (ValueError, ImportError) as exc:
+            raise ValidationError(str(exc)) from exc
+        if reshape_mapper.batch and not isinstance(source, MongoDbSource):
+            raise ValidationError(
+                "the batch (polars) reshape engine needs an Arrow-yielding source; "
+                "only the MongoDB source supports it currently"
+            )
+
+    source_kwargs: Dict[str, Any] = dict(
         uri=jr.source_uri,
         table=source_table,
         incremental_key=jr.incremental_key,
@@ -335,6 +353,9 @@ def run_ingest(**kwargs) -> LoadInfo | None:
         extract_parallelism=jr.extract_parallelism,
         column_types=column_types,
     )
+    if reshape_mapper is not None and reshape_mapper.batch:
+        source_kwargs["data_item_format"] = "arrow"
+    dlt_source = source.dlt_source(**source_kwargs)
 
     resource.for_each(dlt_source, lambda x: x.add_map(cast_set_to_list))
     if factory.source_scheme.startswith("mysql"):
@@ -353,6 +374,13 @@ def run_ingest(**kwargs) -> LoadInfo | None:
 
         resource.for_each(dlt_source, lambda x: x.add_map(arrow.as_list))
 
+    if reshape_mapper is not None:
+        if reshape_mapper.batch:
+            # one Arrow table in, N dicts out -> dlt normalizes the dicts into child tables.
+            resource.for_each(dlt_source, lambda x: x.add_yield_map(reshape_mapper.fn))
+        else:
+            resource.for_each(dlt_source, lambda x: x.add_map(reshape_mapper.fn))
+
     if jr.mask:
         masking_filter = create_masking_filter(jr.mask)
         resource.for_each(dlt_source, lambda x: x.add_map(masking_filter))
@@ -360,7 +388,10 @@ def run_ingest(**kwargs) -> LoadInfo | None:
     if jr.yield_limit:
         resource.for_each(dlt_source, lambda x: x.add_limit(jr.yield_limit))
 
-    if isinstance(source, MongoDbSource):
+    # TypeHintMap json-hints top-level Mongo arrays into JSON columns. A reshape owns the
+    # schema instead (and needs the arrays un-hinted so they normalize into child tables),
+    # so skip it when a reshape is active. See omniload/codec/reshape.py.
+    if isinstance(source, MongoDbSource) and not jr.reshape:
         from omniload.core.resource import TypeHintMap
 
         resource.for_each(dlt_source, lambda x: x.add_map(TypeHintMap().type_hint_map))

@@ -26,6 +26,7 @@ def invoke_ingest_command(
     sql_limit=None,
     yield_limit=None,
     mask=None,
+    reshape=None,
     print_output=True,
     run_in_subprocess=False,
     subprocess_timeout=120,
@@ -101,6 +102,10 @@ def invoke_ingest_command(
         for m in mask:
             args.append("--mask")
             args.append(m)
+
+    if reshape:
+        args.append("--reshape")
+        args.append(reshape)
 
     if not run_in_subprocess:
         result = CliRunner().invoke(

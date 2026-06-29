@@ -85,6 +85,7 @@ class MongoDbSource:
                 parallel=False,
                 incremental=incremental,
                 custom_query=query,
+                data_item_format=kwargs.get("data_item_format", "object"),
             )
             table_instance.max_table_nesting = 1
             return table_instance
@@ -109,6 +110,7 @@ class MongoDbSource:
                 collection=table_fields.table,
                 parallel=False,
                 incremental=incremental,
+                data_item_format=kwargs.get("data_item_format", "object"),
             )
             table_instance.max_table_nesting = 1
 
