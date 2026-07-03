@@ -29,6 +29,7 @@ test.env
 .claude
 helper_scripts
 tmp
+uv.lock
 
 # ignore secrets, virtual environments and typical python compilation artifacts
 secrets.toml
