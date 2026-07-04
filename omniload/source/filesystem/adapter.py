@@ -17,7 +17,8 @@
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
 import dlt
-from dlt.sources import DltResource, TDataItems
+from dlt.common.typing import TDataItems
+from dlt.sources import DltResource
 from dlt.sources.credentials import FileSystemCredentials
 from dlt.sources.filesystem import FileItem, FileItemDict, fsspec_filesystem, glob_files
 from fsspec import AbstractFileSystem
