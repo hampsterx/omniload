@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/07/06 v0.6.0
+
 - Connectors: Added `file://` source and destination adapters that
   read and write from/to local CSV / JSONL / Parquet files.
   Thanks, @hampsterx.
