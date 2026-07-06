@@ -2,9 +2,12 @@
 
 ## in progress
 
+- Connectors: Added `file://` source and destination adapters that
+  read and write from/to local CSV / JSONL / Parquet files.
+  Thanks, @hampsterx.
+- Connectors: Refactored filesystem internals
 - Connectors: Migrated filesystem CSV reader from pandas to Polars
-- Connectors: Added a `file://` destination that writes local CSV / JSONL /
-  Parquet files, the write-side twin of the `file://` source. Thanks, @hampsterx.
+- Filesystem readers: Added support for BSON. Thanks, @hampsterx.
 
 ## 2026/07/02 v0.5.0
 
