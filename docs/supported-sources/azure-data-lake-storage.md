@@ -30,7 +30,7 @@ The `--source-table` parameter specifies the container (filesystem) and file pat
 
 ```sh
 omniload ingest \
-    --source-uri 'adls://?account_name=mystorageacct&account_key=bXlfa2V5%3D%3D' \
+    --source-uri 'adls://?account_name=mystorageacct&account_key=dGVzdA%3D%3D' \
     --source-table 'my-filesystem/events/2024/*.parquet' \
     --dest-uri duckdb:///adls_data.duckdb \
     --dest-table 'analytics.events'
@@ -42,7 +42,7 @@ omniload ingest \
 omniload ingest \
     --source-uri 'duckdb:///records.db' \
     --source-table 'public.users' \
-    --dest-uri 'abfss://?account_name=mystorageacct&account_key=bXlfa2V5%3D%3D' \
+    --dest-uri 'abfss://?account_name=mystorageacct&account_key=dGVzdA%3D%3D' \
     --dest-table 'my-filesystem/users'
 ```
 

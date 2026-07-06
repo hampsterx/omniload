@@ -43,7 +43,7 @@ Once you have your credentials, you can configure the `az://` URI. The container
 
 Let's assume the following details:
 *   `account_name`: `mystorageacct`
-*   `account_key`: `bXlfc3VwZXJfc2VjcmV0X2tleQ==`
+*   `account_key`: `dGVzdA==`
 *   Container name: `my-container`
 *   Path to files within the container: `students/students_details.csv`
 
@@ -51,7 +51,7 @@ The following command demonstrates how to copy data from the specified Azure loc
 
 ```sh
 omniload ingest \
-    --source-uri 'az://?account_name=mystorageacct&account_key=bXlfc3VwZXJfc2VjcmV0X2tleQ%3D%3D' \
+    --source-uri 'az://?account_name=mystorageacct&account_key=dGVzdA%3D%3D' \
     --source-table 'my-container/students/students_details.csv' \
     --dest-uri duckdb:///azure_data.duckdb \
     --dest-table 'processed_students.student_details'
@@ -72,7 +72,7 @@ The following command demonstrates how to copy data from a local duckdb database
 omniload ingest \
     --source-uri 'duckdb:///records.db' \
     --source-table 'public.users' \
-    --dest-uri 'az://?account_name=mystorageacct&account_key=bXlfc3VwZXJfc2VjcmV0X2tleQ%3D%3D' \
+    --dest-uri 'az://?account_name=mystorageacct&account_key=dGVzdA%3D%3D' \
     --dest-table 'my-container/records'
 ```
 
@@ -133,7 +133,7 @@ For example, to load data from a gzipped CSV file:
 
 ```sh
 omniload ingest \
-    --source-uri 'az://?account_name=mystorageacct&account_key=bXlfa2V5%3D%3D' \
+    --source-uri 'az://?account_name=mystorageacct&account_key=dGVzdA%3D%3D' \
     --source-table 'my-container/logs/event-data.csv.gz' \
     --dest-uri duckdb:///compressed_data.duckdb \
     --dest-table 'logs.events'
