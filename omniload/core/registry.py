@@ -32,7 +32,9 @@ SQL_SOURCE_SCHEMES = [
 
 sources: LazyRegistry = LazyRegistry(
     {
+        "abfss": "omniload.source.filesystem.api:AzureSource",
         "adjust": "omniload.source.adjust.api:AdjustSource",
+        "adls": "omniload.source.filesystem.api:AzureSource",
         "airtable": "omniload.source.airtable.api:AirtableSource",
         "allium": "omniload.source.allium.api:AlliumSource",
         "amqp+mqb": "omniload.source.mqbridge.api:MqBridgeSource",
@@ -44,6 +46,7 @@ sources: LazyRegistry = LazyRegistry(
         "asana": "omniload.source.asana.api:AsanaSource",
         "attio": "omniload.source.attio.api:AttioSource",
         "aws+mqb": "omniload.source.mqbridge.api:MqBridgeSource",
+        "az": "omniload.source.filesystem.api:AzureSource",
         "bruin": "omniload.source.bruin.api:BruinSource",
         "chess": "omniload.source.chess.api:ChessSource",
         "clickup": "omniload.source.clickup.api:ClickupSource",
@@ -124,7 +127,10 @@ sources: LazyRegistry = LazyRegistry(
 
 destinations: LazyRegistry = LazyRegistry(
     {
+        "abfss": "omniload.target.filesystem.api:AzureDestination",
+        "adls": "omniload.target.filesystem.api:AzureDestination",
         "athena": "omniload.target.athena:AthenaDestination",
+        "az": "omniload.target.filesystem.api:AzureDestination",
         "bigquery": "omniload.target.bigquery:BigQueryDestination",
         "clickhouse": "omniload.target.clickhouse:ClickhouseDestination",
         "clickhouse+native": "omniload.target.clickhouse:ClickhouseDestination",

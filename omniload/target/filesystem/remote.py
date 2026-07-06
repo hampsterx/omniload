@@ -4,10 +4,15 @@ import json
 from urllib.parse import parse_qs, urlparse
 
 import dlt.destinations.impl.filesystem.filesystem
-from dlt.common.configuration.specs import AwsCredentials
+from dlt.common.configuration.specs import (
+    AwsCredentials,
+    AzureCredentials,
+    AzureServicePrincipalCredentials,
+)
 from dlt.common.storages.configuration import FileSystemCredentials
 
 from omniload.error import MissingValueError
+from omniload.util.auth import parse_azure_blob_auth
 
 
 class BlobStorageDestination(abc.ABC):
@@ -69,6 +74,14 @@ class BlobStorageDestination(abc.ABC):
             "table_name": table_parts[-1].strip(),
         }
 
+    def post_load(self) -> None:  # noqa: B027
+        # Blob-storage destinations write the dlt layout directly to the bucket;
+        # unlike Athena/Clickhouse there is no follow-up fixup to run. The hook
+        # is required by DestinationProtocol (run_ingest calls it directly), so
+        # it must exist as a concrete no-op default that subclasses inherit
+        # (deliberately not @abstractmethod, hence noqa B027).
+        pass
+
 
 class S3Destination(BlobStorageDestination):
     @property
@@ -123,6 +136,58 @@ class GCSDestination(BlobStorageDestination):
             credentials = json.loads(base64.b64decode(credentials_base64[0]).decode())  # type: ignore
 
         return credentials
+
+
+class AzureDestination(BlobStorageDestination):
+    """Azure Blob Storage / ADLS Gen2 destination (``az://``, ``adls://``, ``abfss://``).
+
+    The ``az://`` bucket-url scheme serves both Blob and ADLS Gen2 (they differ
+    only by the account's hierarchical namespace), so ``adls://`` / ``abfss://``
+    are registry aliases onto this class and the fsspec backend only ever sees
+    ``az://``.
+    """
+
+    @property
+    def protocol(self) -> str:
+        return "az"
+
+    def credentials(self, params: dict) -> FileSystemCredentials:
+        """Build dlt Azure credentials from URI query params.
+
+        Maps the ingestr-style short names onto dlt's spec fields; dlt's
+        ``to_adlfs_credentials()`` handles the fsspec mapping downstream. Only
+        supplied fields are set (dlt's spec fields default to ``None`` but are
+        typed non-optional), which also narrows the parsed optionals for ``ty``.
+        """
+        auth = parse_azure_blob_auth(params)
+
+        if auth.is_service_principal:
+            # parse_azure_blob_auth guarantees the full triplet here; the
+            # per-field `is not None` guards mirror the account-key branch and
+            # narrow the parsed optionals to str for ty.
+            sp_credentials = AzureServicePrincipalCredentials(
+                azure_storage_account_name=auth.account_name,
+            )
+            if auth.tenant_id is not None:
+                sp_credentials.azure_tenant_id = auth.tenant_id
+            if auth.client_id is not None:
+                sp_credentials.azure_client_id = auth.client_id
+            if auth.client_secret is not None:
+                sp_credentials.azure_client_secret = auth.client_secret
+            if auth.account_host is not None:
+                sp_credentials.azure_account_host = auth.account_host
+            return sp_credentials
+
+        key_credentials = AzureCredentials(
+            azure_storage_account_name=auth.account_name,
+        )
+        if auth.account_key is not None:
+            key_credentials.azure_storage_account_key = auth.account_key
+        if auth.sas_token is not None:
+            key_credentials.azure_storage_sas_token = auth.sas_token
+        if auth.account_host is not None:
+            key_credentials.azure_account_host = auth.account_host
+        return key_credentials
 
 
 class BlobFSClient(dlt.destinations.impl.filesystem.filesystem.FilesystemClient):

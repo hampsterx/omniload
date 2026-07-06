@@ -179,6 +179,16 @@ Feel free to [create an issue][Issues] if you'd like to see support for another 
         <td>-</td>
     </tr>
     <tr>
+        <td>Azure Blob Storage</td>
+        <td>✅</td>
+        <td>✅</td>
+    </tr>
+    <tr>
+        <td>Azure Data Lake Storage (Gen2)</td>
+        <td>✅</td>
+        <td>✅</td>
+    </tr>
+    <tr>
         <td>Chess.com</td>
         <td>✅</td>
         <td>-</td>
