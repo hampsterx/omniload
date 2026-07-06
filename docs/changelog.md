@@ -2,6 +2,14 @@
 
 ## in progress
 
+- Connectors: Added Azure Blob Storage (`az://`) and Azure Data Lake Storage
+  Gen2 (`adls://`, `abfss://`) source and destination adapters, backed by
+  `adlfs`. Supports account-key, SAS-token, and service-principal auth.
+  Thanks, @hampsterx.
+- Filesystem destinations: Fixed blob-storage destinations (S3, GCS, Azure)
+  aborting at the end of a load because the required `post_load` hook was
+  missing from the shared base class. Thanks, @hampsterx.
+
 ## 2026/07/06 v0.6.0
 
 - Connectors: Added `file://` source and destination adapters that

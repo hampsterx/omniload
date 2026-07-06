@@ -11,6 +11,7 @@ from omniload.source.filesystem.router import (
     parse_uri,
     split_format_hint,
 )
+from omniload.util.auth import AzureBlobAuth, parse_azure_blob_auth
 
 
 class GCSSource:
@@ -126,6 +127,92 @@ class S3Source:
             endpoint: str = determine_endpoint(table, path_to_file)
         except UnsupportedEndpointError:
             raise ValueError(supported_file_format_message("S3"))
+        except Exception as e:
+            raise ValueError(
+                f"Failed to parse endpoint from path: {path_to_file}"
+            ) from e
+
+        from omniload.source.filesystem.adapter import resource_for_reader
+        from omniload.source.filesystem.model import FilesystemReference
+
+        return resource_for_reader(
+            FilesystemReference(
+                fs=fs,
+                bucket_url=bucket_url,
+                file_glob=path_to_file,
+                reader_name=endpoint,
+                page=table,
+                column_types=kwargs.get("column_types"),
+            )
+        )
+
+
+def _azure_fs(auth: AzureBlobAuth):
+    """Build an ``adlfs.AzureBlobFileSystem`` from resolved Azure auth params.
+
+    The ingestr-style short names already match adlfs kwargs, so they pass
+    straight through; only the supplied ones are forwarded. ``adlfs`` is
+    imported lazily so the CLI ``--help`` and every non-Azure path never load
+    the Azure SDK (matching the s3fs/gcsfs deferred-import convention).
+    """
+    import adlfs
+
+    kwargs = {"account_name": auth.account_name}
+    if auth.account_key is not None:
+        kwargs["account_key"] = auth.account_key
+    if auth.sas_token is not None:
+        kwargs["sas_token"] = auth.sas_token
+    if auth.tenant_id is not None:
+        kwargs["tenant_id"] = auth.tenant_id
+    if auth.client_id is not None:
+        kwargs["client_id"] = auth.client_id
+    if auth.client_secret is not None:
+        kwargs["client_secret"] = auth.client_secret
+    if auth.account_host is not None:
+        kwargs["account_host"] = auth.account_host
+
+    # adlfs annotates its credential params as `str` (defaulting to None) and
+    # mixes in non-str params (blocksize: int, ...), so ty can't check a
+    # conditional str-kwargs splat against the signature. The kwargs are all
+    # valid adlfs credential arguments by construction.
+    return adlfs.AzureBlobFileSystem(**kwargs)  # ty: ignore[invalid-argument-type]
+
+
+class AzureSource:
+    """Azure Blob Storage / ADLS Gen2 source (``az://``, ``adls://``, ``abfss://``).
+
+    adlfs serves both Blob and ADLS Gen2 through one ``AzureBlobFileSystem`` and
+    the ``az://`` bucket-url scheme, so every Azure user-scheme reads through the
+    same ``az://`` backend; the ``adls://`` / ``abfss://`` schemes are registry
+    aliases onto this class.
+    """
+
+    def handles_incrementality(self) -> bool:
+        return True
+
+    def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Azure takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
+        parsed_uri = urlparse(uri)
+        params = parse_qs(parsed_uri.query)
+
+        auth = parse_azure_blob_auth(params)
+
+        bucket_name, path_to_file = parse_uri(parsed_uri, table)
+        if not bucket_name or not path_to_file:
+            raise InvalidBlobTableError("Azure")
+
+        bucket_url = f"az://{bucket_name}"
+
+        fs = _azure_fs(auth)
+
+        try:
+            endpoint: str = determine_endpoint(table, path_to_file)
+        except UnsupportedEndpointError:
+            raise ValueError(supported_file_format_message("Azure"))
         except Exception as e:
             raise ValueError(
                 f"Failed to parse endpoint from path: {path_to_file}"

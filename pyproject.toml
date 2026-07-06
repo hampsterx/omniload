@@ -71,6 +71,7 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
+  "adlfs",
   "aiohttp<4",
   "asana<6",
   "click<8.5",
