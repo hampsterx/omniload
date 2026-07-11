@@ -1,4 +1,4 @@
-"""MessagePack filesystem reader: the generic iterabledata harness + msgpack.
+"""Test the MessagePack filesystem reader: the generic iterabledata harness + msgpack.
 
 Mock-only unit lane (no Docker, no credentials): msgpack files are written to ``tmp_path``
 and read back through ``LocalFilesystemSource``, which exercises the same ``read_msgpack``

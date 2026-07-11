@@ -14,21 +14,13 @@ CBOR support ships in the optional `iterable` extra, so it is not part of the ba
 pip install 'omniload[iterable]'
 ```
 
-The extra also installs [`iterabledata`](https://github.com/datenoio/iterabledata) (used for
-other formats such as MessagePack), but CBOR itself is decoded directly with the `cbor2`
-library, not through `iterabledata` (see Routing policy below).
-
 If a `.cbor` file is loaded without the extra installed, `omniload` fails with a clear error
 naming the exact `pip install` to run, rather than a bare `ImportError`.
 
-## Routing policy
-
-`omniload` reads each file format through its best available path: CSV, JSONL and Parquet use
-native Polars / pyarrow readers, and BSON / MessagePack go through a dedicated codec / the
-generic `iterabledata` bridge. CBOR decodes the whole file directly with `cbor2` instead:
-`iterabledata`'s `CBORIterable` wraps its decode in a bare `except Exception` that yields no
-rows on a bad payload, so a truncated or corrupt file would silently load as zero rows.
-Decoding with `cbor2` directly means a corrupt file raises instead of loading nothing.
+CBOR is decoded directly with `cbor2` rather than through the `iterabledata` bridge, so a
+corrupt file raises instead of silently loading zero rows; see
+[File-format routing](../getting-started/file-format-routing.md) for how omniload chooses a
+reader per format.
 
 ## File shape: a single top-level value
 

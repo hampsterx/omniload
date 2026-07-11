@@ -1,4 +1,4 @@
-"""CBOR filesystem reader: the second format on the generic iterabledata harness.
+"""Test the CBOR filesystem reader: the second format on the generic iterabledata harness.
 
 Mock-only unit lane (no Docker, no credentials): CBOR files are written to ``tmp_path`` and
 read back through ``LocalFilesystemSource``. Covers: CBOR resolves by extension + ``#cbor``
@@ -6,7 +6,8 @@ hint, the adversarial fixture (bytes, datetime, Decimal, a custom tag, nested) l
 and the documented single-top-level-value constraint holds (concatenated CBOR objects read
 only the first, a cbor2 limitation that can't be detected).
 
-Skipped entirely when the optional ``iterable`` extra isn't installed.
+Skipped when ``cbor2`` isn't installed (it ships in omniload's ``iterable`` extra). CBOR
+decodes with ``cbor2`` directly, so it does not need the ``iterable`` package itself.
 """
 
 import base64
@@ -18,7 +19,6 @@ import json
 import duckdb
 import pytest
 
-pytest.importorskip("iterable.datatypes.cbor")
 cbor2 = pytest.importorskip("cbor2")
 
 from omniload import run_ingest  # noqa: E402

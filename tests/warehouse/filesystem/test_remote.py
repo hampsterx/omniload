@@ -21,17 +21,15 @@ from tests.util import invoke_ingest_command
 from tests.util.common import get_random_string, has_exception
 from tests.warehouse.settings import DESTINATIONS
 
-# The MessagePack reader needs the optional `iterable` extra (iterabledata + msgpack). Probe
-# with find_spec so this module imports without them; the msgpack case is added only when
-# both are present.
+# These formats need decoders from the optional `iterable` extra. Probe with find_spec so this
+# module imports without them; each case is added only when its decoder is present. MessagePack
+# streams through iterabledata, so it also needs the `iterable` package itself; CBOR decodes
+# with `cbor2` directly (eager_decoder, no iterabledata), so it needs only `cbor2`.
 HAS_MSGPACK = (
     importlib.util.find_spec("iterable") is not None
     and importlib.util.find_spec("msgpack") is not None
 )
-HAS_CBOR = (
-    importlib.util.find_spec("iterable") is not None
-    and importlib.util.find_spec("cbor2") is not None
-)
+HAS_CBOR = importlib.util.find_spec("cbor2") is not None
 
 
 def fs_test_cases(

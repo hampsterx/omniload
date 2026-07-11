@@ -47,7 +47,7 @@ jobs:
 
       - name: Install project
         run: |
-          uv pip install --editable='.[full,develop,test,iterable]'
+          uv pip install --editable='.[full,develop,test]'
 
       - name: Set timezone
         uses: szenius/set-timezone@v2.0
@@ -94,7 +94,7 @@ jobs:
 
       - name: Install project
         run: |
-          uv pip install --editable='.[develop,test,iterable]'
+          uv pip install --editable='.[develop,test]'
 
       - name: Set timezone
         uses: szenius/set-timezone@v2.0

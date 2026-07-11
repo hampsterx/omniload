@@ -20,13 +20,9 @@ pip install 'omniload[iterable]'
 If a `.msgpack` file is loaded without the extra installed, `omniload` fails with a clear
 error naming the exact `pip install` to run, rather than a bare `ImportError`.
 
-## Routing policy
-
-`omniload` reads each file format through its best available path: CSV, JSONL and Parquet
-use native Polars / pyarrow readers, BSON uses a dedicated codec, and formats without a
-better native path (such as MessagePack) are read through the generic `iterabledata`
-bridge. This keeps the fast, well-tested paths in place while letting long-tail formats be
-added incrementally.
+MessagePack is read through the generic `iterabledata` bridge because it has no faster native
+reader; see [File-format routing](../getting-started/file-format-routing.md) for how omniload
+chooses a reader per format.
 
 ## Where it works
 
