@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/07/16 v0.7.0
+
 - Connectors: Added Azure Blob Storage (`az://`) and Azure Data Lake Storage
   Gen2 (`adls://`, `abfss://`) source and destination adapters, backed by
   `adlfs`. Supports account-key, SAS-token, and service-principal auth.
