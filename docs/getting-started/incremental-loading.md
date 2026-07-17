@@ -17,6 +17,7 @@ Before you use incremental loading, you should understand three important settin
   - `append`: simply append the new rows to the destination table.
   - `merge`: merge the new rows with the existing rows in the destination table, insert the new ones and update the existing ones with the new values.
   - `delete+insert`: delete the existing rows in the destination table that match the incremental key and then insert the new rows.
+  - `scd2`: retire the existing row and open a new one when a row changes, keeping the history of both.
 
 
 
@@ -231,6 +232,74 @@ The behavior is the same if there were new rows in the source table, they would 
 The `delete+insert` strategy is useful when you want to keep the destination table clean, as it will delete the existing rows in the destination table that match the `incremental_key` and then insert the new rows from the source table. `delete+insert` strategy also allows you to backfill the data, e.g. going back to a past date and ingesting the data again.
 :::
 
+## SCD2
+
+SCD2 (slowly changing dimension type 2) keeps the history of every row rather than overwriting it. When a row changes in the source, the existing record is retired and a new one is opened alongside it, so the destination records what the data looked like at any point in time. Each run stamps two extra columns, `_dlt_valid_from` and `_dlt_valid_to`. The record that is currently active is the one with an empty `_dlt_valid_to`.
+
+SCD2 spots a change by comparing the whole source table against the records it is holding open, and retires whatever it no longer finds there. Every run must therefore read the table in full, so `scd2` rejects `--incremental-key`, `--sql-limit`, and `--yield-limit`: each reads back part of the table, which SCD2 cannot tell apart from the rest of the rows having been deleted. The filesystem family rejects `scd2` altogether ([Filesystem sources](#filesystem-sources)).
+
+Where the source table is an expression rather than a plain table name, such as a `query:` for a SQL source, that expression's result is the table SCD2 tracks and carries the same requirement: it must return the tracked rows in full on every run. An expression whose result varies for any reason other than the data changing, such as one carrying its own limit, retires the rows it omits.
+
+The following example applies the `scd2` strategy to the `my_schema.some_data` table in Postgres, loading it into BigQuery.
+
+```bash
+omniload ingest \
+    --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
+    --source-table 'my_schema.some_data' \
+    --dest-uri 'bigquery://<your-project-name>?credentials_path=/path/to/service/account.json' \
+    --incremental-strategy scd2
+```
+
+### Example
+
+Let's assume you had the following source table:
+
+| id | name |
+|----|------|
+| 1  | John |
+| 2  | Jane |
+
+#### First Ingestion
+The first time you run the command, every row is ingested and opened as an active record:
+
+| id | name | _dlt_valid_from | _dlt_valid_to |
+|----|------|-----------------|---------------|
+| 1  | John | 2021-01-01      |               |
+| 2  | Jane | 2021-01-01      |               |
+
+#### Second Ingestion, no new data
+When no row has changed, the destination table remains the same. Unchanged records are left alone rather than being retired and reopened.
+
+#### Third Ingestion, new data
+Let's say John changed his name to Johnny, e.g. your source:
+
+| id | name   |
+|----|--------|
+| 1  | Johnny |
+| 2  | Jane   |
+
+When you run the command again, the John record is retired and the Johnny record is opened:
+
+| id | name   | _dlt_valid_from | _dlt_valid_to |
+|----|--------|-----------------|---------------|
+| 1  | John   | 2021-01-01      | 2021-01-03    |
+| 2  | Jane   | 2021-01-01      |               |
+| 1  | Johnny | 2021-01-03      |               |
+
+**Notice the first row in the table:** it is kept, closed off at the moment the change was seen. Querying `where _dlt_valid_to is null` gives you the current state of the source.
+
+:::{tip}
+Pass `--primary-key` when you want the natural key of the entity marked on the destination table. It is optional: it does not affect which changes SCD2 detects.
+:::
+
+:::{caution}
+SCD2 compares the row values it receives, so anything that rewrites a value differently on each run reads as a change. The `--mask` algorithms that draw a fresh value per run (`date_shift`, `noise`, `random`, `uuid`) are rejected with `scd2` for that reason. `sequential` is accepted, but numbers rows in the order they arrive, so it holds only for as long as that order does. Prefer a deterministic algorithm, such as `sha256`, `md5`, or `hmac`.
+:::
+
+:::{note}
+SCD2 compares rows by a hash that dlt computes only for row-oriented data, so it does not work on data read as Arrow tables. For SCD2, SQL sources are read with the `sqlalchemy` backend, which omniload selects for you. Passing `--sql-backend pyarrow` or `--sql-backend connectorx` alongside `scd2` is rejected, as is `scd2` on an `mmap://` source, which is Arrow whichever backend you name.
+:::
+
 (incremental-loading-filesystem)=
 
 ## Filesystem sources
@@ -298,6 +367,7 @@ Incremental loading is a powerful feature that allows you to ingest only the new
 - If you want to keep a version history of your data, use the `append` strategy, as it will keep appending the new rows to the destination table, which will give you a version history of your data.
 - If you want to keep the latest version of your data in the destination table and your table has a natural primary key, such as a user ID, use the `merge` strategy, as it will update the existing rows in the destination table with the new values from the source table.
 - If you want to keep the destination table clean and you want to backfill the data, use the `delete+insert` strategy, as it will delete the existing rows in the destination table that match the `incremental_key` and then insert the new rows from the source table.
+- If you want to know what a row looked like at a past point in time, and not just its latest version, use the `scd2` strategy, as it retires the old record and opens a new one instead of overwriting it.
 
 :::{tip}
 Even though the document tries to explain, there's no better learning than trying it yourself. You can use the [Quickstart](/getting-started/quickstart.md) to try the incremental loading strategies yourself.
