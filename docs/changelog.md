@@ -2,10 +2,15 @@
 
 ## in progress
 
+- Core: Added real [SCD2] loading when selecting the `scd2` strategy.
+  Thanks, @hampsterx.
+- Filesystem: Added file-level incremental loading.
+  Thanks, @hampsterx.
 - Filesystem: Migrated local filesystem access to Apache Arrow.
 - Filesystem: Added support for reading from Databricks, Dropbox,
   FTP, Google Drive, HDFS, OCI, OneDrive, OSS, R2, SharePoint,
   SMB, WebDAV, and WebHDFS.
+- Core: Applied a few bits of internal package refactoring.
 
 ## 2026/07/16 v0.7.0
 
@@ -89,4 +94,6 @@
 - Runtime: Removed interactive mode `--yes`, replaced with `--dry-run`
 - Packaging: Modernized PyPI and OCI publishing
 
+
 [ingestr v0.14.155]: https://github.com/bruin-data/ingestr/tree/v0.14.155
+[SCD2]: https://en.wikipedia.org/wiki/Slowly_changing_dimension#Type_2:_add_new_row
