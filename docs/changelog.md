@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/07/27 v0.8.0
+
 - Core: Added real [SCD2] loading when selecting the `scd2` strategy.
   Thanks, @hampsterx.
 - Filesystem: Added file-level incremental loading.
