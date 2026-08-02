@@ -160,6 +160,8 @@ The named-hint grammar:
 - An empty value is preserved (`#sheet_name=` gives `sheet_name` = `""`);
   a reader decides whether that means "unset".
 - Duplicate keys take the last value (`#sheet_name=a&sheet_name=b` gives `b`).
+- JSON arrays select several values when the reader accepts a list, for example
+  `#sheet_name=["events","inventory"]`.
 - If any segment of the fragment is neither a `key=value` pair nor a single
   known format, the whole `#...` is treated as a literal part of the path, so a
   real `#` in a filename keeps working. Percent-encode a literal `#` as `%23`
@@ -172,6 +174,45 @@ For example, CSV and {ref}`xlsx` readers forward corresponding parameters to
 the [polars.read_csv] and [polars.read_excel] functions, and the {ref}`xml`
 reader requires a `#tagname=<row-tag>` hint to define the repeated element
 that represents one record / row.
+:::
+
+(workbook-tables)=
+
+## Workbook tables
+
+XLSX and ODS workbooks are multi-table sources. Without a worksheet selector,
+omniload reads every worksheet and uses each worksheet name as its destination
+table name. Empty worksheets are skipped.
+
+`--dest-table` keeps its usual `<dataset>.<table>` syntax. For a plural workbook
+load, the dataset component is used and the table component is a placeholder:
+
+```sh
+omniload ingest \
+    --source-uri 'file://data/workbook.xlsx' \
+    --dest-uri 'duckdb:///local.duckdb' \
+    --dest-table 'landing.workbook'
+```
+
+A worksheet named `Quarterly Sales` becomes `quarterly_sales` under the default
+schema naming convention. With `--schema-naming direct`, its name remains
+`Quarterly Sales`. Distinct worksheet names that resolve to the same table under
+the active convention fail before loading, with both worksheet and workbook
+names in the error.
+
+When a glob matches several workbooks, worksheets with the same original name
+merge into one destination table. Different original names that collide after
+normalization fail instead of merging silently.
+
+Select one worksheet with `#sheet_name=<name>` or `#sheet_id=<number>`. A single
+selection keeps the existing one-table behavior and uses the table component of
+`--dest-table`. Select several worksheets with a JSON array such as
+`#sheet_name=["events","inventory"]` or `#sheet_id=[1,2]`.
+
+:::{note}
+The `csv://` and `file://` destinations each produce one output file, and the
+cloud blob destinations currently address one table path. They reject a plural
+workbook load. Select one worksheet or use a dataset-capable destination.
 :::
 
 (file-format-routing)=

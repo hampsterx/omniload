@@ -2,6 +2,9 @@
 
 ## in progress
 
+- Filesystem: Treat XLSX and ODS workbooks as multi-table sources by default,
+  while preserving one-table loads through explicit worksheet selectors.
+  Thanks, @hampsterx.
 - Filesystem: Fail ingestion when a concrete source path matches no file while
   keeping unmatched glob selections valid. Thanks, @hampsterx.
 - Filesystem: Added rsync source connector. Thanks, @oferchen.
