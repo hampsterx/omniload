@@ -149,7 +149,7 @@ optional-dependencies.filesystem = [
   "adlfs",
   "dropboxdrivefs",
   "fsspec>=2024.6,<2026.8",
-  "fsspec-databricks",
+  "fsspec-databricks>=0.1.10",
   "gcsfs",
   "gdrive-fsspec",
   "msgraphfs",
