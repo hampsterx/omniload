@@ -3,7 +3,8 @@
 ## in progress
 
 - Filesystem: Fail ingestion when a concrete source path matches no file while
-  keeping unmatched glob selections valid.
+  keeping unmatched glob selections valid. Thanks, @hampsterx.
+- Filesystem: Added rsync source connector. Thanks, @oferchen.
 
 ## 2026/07/27 v0.8.0
 
