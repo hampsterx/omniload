@@ -104,4 +104,8 @@ jobs:
           timezoneWindows: "European Standard Time"
 
       - name: Run Docker-free unit tests
-        run: pytest -m "not integration" -k "not odbc" -p no:cacheprovider
+        # Calamine and mq-bridge load incompatible native runtimes on macOS ARM.
+        # Exercise both, but keep workbook tests in a separate interpreter process.
+        run: |
+          pytest -m "not integration" -k "not odbc" -p no:cacheprovider --ignore=tests/dlt_filesystem/format/test_spreadsheet.py
+          pytest -m "not integration" -k "not odbc" -p no:cacheprovider tests/dlt_filesystem/format/test_spreadsheet.py -n1
