@@ -17,6 +17,10 @@
 - Filesystem: Fail ingestion when a concrete source path matches no file while
   keeping unmatched glob selections valid. Thanks, @hampsterx.
 - Filesystem: Added rsync source connector. Thanks, @oferchen.
+- Filesystem: Enabled loading multiple workbook worksheets as tables.
+  Thanks, @hampsterx.
+- Filesystem: Enabled loading remote SQLite and DuckDB databases.
+  Thanks, @hampsterx.
 
 ## 2026/07/27 v0.8.0
 
