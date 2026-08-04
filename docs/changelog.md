@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/04 v0.9.0
+
 - Database: Load SQLite and DuckDB databases that live on a remote filesystem,
   addressed by their plain object URI, for example
   `s3://analytics/snapshots/events.duckdb`. Thanks, @hampsterx.
