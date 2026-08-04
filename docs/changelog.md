@@ -2,6 +2,11 @@
 
 ## in progress
 
+- Filesystem: List and read through every registered scheme, including `r2://`,
+  `oss://`, `hdfs://`, `smb://`, `ftp://`, `dbfs://`, `oci://` and `webhdfs://`,
+  by resolving a file's modification date from the listing the filesystem client
+  returns.
+
 ## 2026/08/04 v0.9.0
 
 - Database: Load SQLite and DuckDB databases that live on a remote filesystem,
