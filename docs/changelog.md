@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/05 v0.9.1
+
 - Filesystem: List and read through every registered scheme, including `r2://`,
   `oss://`, `hdfs://`, `smb://`, `ftp://`, `dbfs://`, `oci://` and `webhdfs://`,
   by resolving a file's modification date from the listing the filesystem client
