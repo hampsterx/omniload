@@ -93,6 +93,13 @@ state sync, while other destinations require a stable `--pipelines-dir`. Files
 at the current maximum modification time are deduplicated by their URL, and an
 older-mtime backfill requires `--full-refresh` to reset the cursor.
 
+:::{note}
+`--filesystem-incremental` and `--columns` describe the reader, not the storage
+service, so they apply to every scheme on this page and mean the same thing on
+each. Everything else a source URI carries is that filesystem's own connection
+configuration.
+:::
+
 The single-file `csv://` and `file://` destinations are rejected because they
 replace their output using only the rows selected for the current run.
 
