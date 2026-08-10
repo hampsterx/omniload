@@ -2,6 +2,15 @@
 
 ## in progress
 
+- Filesystem: Honour `--filesystem-incremental` and `--columns` on every
+  transport in the family. They were accepted and then ignored on the fourteen
+  schemes that build their resource through the shared locator, among them
+  `ftp://`, `smb://`, `oss://`, `oci://`, `webhdfs://`, `dropbox://`,
+  `gdrive://`, `sharepoint://` and `dbfs://`.
+- Filesystem: Stop passing omniload's own run parameters to fsspec filesystem
+  constructors, which fragmented fsspec's instance cache and would be rejected
+  by a backend that validates its keyword arguments.
+
 ## 2026/08/05 v0.9.1
 
 - Filesystem: List and read through every registered scheme, including `r2://`,
