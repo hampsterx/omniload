@@ -9,7 +9,10 @@
   `gdrive://`, `sharepoint://` and `dbfs://`.
 - Filesystem: Stop passing omniload's own run parameters to fsspec filesystem
   constructors, which fragmented fsspec's instance cache and would be rejected
-  by a backend that validates its keyword arguments.
+  by a backend that validates its keyword arguments. A source URI query
+  parameter sharing a name with one of those run options is now ignored rather
+  than forwarded; the run parameter already took precedence over it, so no
+  connection setting changes meaning.
 
 ## 2026/08/05 v0.9.1
 
