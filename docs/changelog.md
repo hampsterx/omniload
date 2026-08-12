@@ -2,17 +2,17 @@
 
 ## in progress
 
-- Filesystem: Honour `--filesystem-incremental` and `--columns` on every
+- Filesystem: Started honouring `--filesystem-incremental` and `--columns` on every
   transport in the family. They were accepted and then ignored on the fourteen
   schemes that build their resource through the shared locator, among them
   `ftp://`, `smb://`, `oss://`, `oci://`, `webhdfs://`, `dropbox://`,
-  `gdrive://`, `sharepoint://` and `dbfs://`.
-- Filesystem: Stop passing omniload's own run parameters to fsspec filesystem
+  `gdrive://`, `sharepoint://` and `dbfs://`. Thanks, @hampsterx.
+- Filesystem: Stopped passing omniload's own run parameters to fsspec filesystem
   constructors, which fragmented fsspec's instance cache and would be rejected
   by a backend that validates its keyword arguments. A source URI query
   parameter sharing a name with one of those run options is now ignored rather
   than forwarded; the run parameter already took precedence over it, so no
-  connection setting changes meaning.
+  connection setting changes meaning. Thanks, @hampsterx.
 
 ## 2026/08/05 v0.9.1
 
