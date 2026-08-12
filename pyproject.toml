@@ -90,7 +90,7 @@ dependencies = [
   "elasticsearch<10",
   "facebook-business<27",
   "flatten-json<0.2",
-  "gitpython>=3.1.55",
+  "gitpython>=3.1.59",
   "google-ads<32",
   "google-analytics-data<0.24",
   "google-api-python-client<3",
