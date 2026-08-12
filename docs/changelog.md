@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/12 v0.9.2
+
 - Filesystem: Started honouring `--filesystem-incremental` and `--columns` on every
   transport in the family. They were accepted and then ignored on the fourteen
   schemes that build their resource through the shared locator, among them
