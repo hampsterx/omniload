@@ -80,6 +80,7 @@ dependencies = [
   "colorlog<7",
   "confluent-kafka<2.16",
   "couchbase>=4,<5",
+  "cryptography>=50; python_version>='3.11'",
   "databricks-sql-connector<5",
   "databricks-sqlalchemy<3",
   "dataclasses-json<0.7",
