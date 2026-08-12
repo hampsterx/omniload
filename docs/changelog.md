@@ -2,6 +2,13 @@
 
 ## in progress
 
+- Filesystem: Added a `json` format, so a `.json` file loads on every transport in
+  the family. An object becomes one row and an array one row per element, whether
+  or not the document is pretty-printed, and a `.json` file that holds
+  line-delimited records still loads. `.jsonl` keeps its own strict
+  one-record-per-line reader. A URI fragment of `#json` is now read as a format
+  hint rather than as literal text. Thanks, @hampsterx.
+
 ## 2026/08/12 v0.9.2
 
 - Filesystem: Started honouring `--filesystem-incremental` and `--columns` on every

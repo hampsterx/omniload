@@ -31,6 +31,7 @@ URI does not include file extensions.
 | {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor      | #cbor         | ✅   | ❌    |
 | [CSV]            | Comma-separated values with a header row        | .csv       | #csv          | ✅   | ✅    |
 | [CSV] (headless) | Comma-separated values without a header row     | .csv       | #csv_headless | ✅   | ❌    |
+| [JSON]           | One JSON document: an object or an array        | .json      | #json         | ✅   | ❌    |
 | [JSONL]          | Newline-delimited JSON                          | .jsonl     | #jsonl        | ✅   | ✅    |
 | {ref}`msgpack`   | Efficient binary serialization format           | .msgpack   | #msgpack      | ✅   | ❌    |
 | {ref}`ods`       | OpenDocument spreadsheet format                 | .ods       | #ods          | ✅   | ❌    |
@@ -286,6 +287,7 @@ decoding.
 | CSV, JSONL, Parquet | `polars` / `pyarrow`    | Built-ins.                         |
 | BSON                | Dedicated in-tree codec | Needs extended-type normalization. |
 | CBOR                | `cbor`                  | Whole-file format.                 |
+| JSON                | `orjson`                | Whole-document parse.              |
 | MessagePack         | `iterabledata`          | Streamed record-by-record.         |
 | ODS                 | `polars`                | Whole-file format.                 |
 | XML                 | `lxml`                  | Whole-file parse, hardened.        |
@@ -321,6 +323,18 @@ This guarantees robustness and speed.
 
 Some formats are whole-file rather than streaming. For those, omniload decodes
 the bytes with the format's own library directly.
+
+### JSON and JSONL
+
+`.json` and `.jsonl` are separate formats. `.jsonl` is always read as one record
+per line. `.json` is read as one document: an object loads as a single row, an
+array loads as one row per element, and indentation makes no difference. A
+`.json` file that turns out to hold line-delimited records still loads, because
+records are the fallback once the document does not parse as one value.
+
+:::{note}
+Only JSONL is available for write operations.
+:::
 
 ### Streaming
 
@@ -379,6 +393,7 @@ guarantee you get.
 
 [CSV]: https://en.wikipedia.org/wiki/Comma-separated_values
 [iterabledata]: https://pypi.org/project/iterabledata/
+[JSON]: https://en.wikipedia.org/wiki/JSON
 [JSONL]: https://en.wikipedia.org/wiki/JSON_streaming#JSONL
 [Parquet]: https://en.wikipedia.org/wiki/Apache_Parquet
 [polars.read_csv]: https://docs.pola.rs/api/python/stable/reference/api/polars.read_csv.html
