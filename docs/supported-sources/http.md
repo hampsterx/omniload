@@ -18,9 +18,11 @@ http://example.org/path/to/data.parquet
 ## The query string is part of the address
 
 Unlike the other schemes in this family, an HTTP URL's query string is **not**
-connection configuration: it is sent to the server verbatim. That is what makes a
-presigned URL work, since the signature lives in the query and is computed over its
-encoded form:
+connection configuration: it is sent to the server. That is what makes a presigned
+URL work, since the signature lives in the query and is computed over its encoded
+form, and an escape that carries meaning (`%2F`) is preserved rather than decoded.
+An escape of an unreserved character is normalized (`%7E` becomes `~`), which every
+canonical signing scheme treats as the same value:
 
 ```sh
 omniload ingest \
@@ -32,10 +34,20 @@ omniload ingest \
 Quote the URI in your shell: `&` would otherwise background the command.
 
 :::{note}
-Because the query is addressing information, connection options cannot be passed
-in it. Pass them as keyword arguments to `run_ingest` (the Python API) instead:
-`block_size`, `simple_links`, `headers`, `client_kwargs` and `ssl` reach the
-underlying [fsspec HTTP filesystem].
+Because the query is addressing information, connection options cannot ride in it,
+the way they do for `s3://` and the other schemes. They are available when you
+build the source yourself, where a keyword argument reaches the underlying [fsspec
+HTTP filesystem]:
+
+```python
+from dlt_filesystem.source.fsspec.http import HttpFilesystemSource
+
+source = HttpFilesystemSource().dlt_source(
+    "https://example.org/data.jsonl", "", block_size=65536
+)
+```
+
+`omniload ingest` and `run_ingest` have no channel for them.
 :::
 
 ## Authentication

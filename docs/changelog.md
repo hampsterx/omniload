@@ -8,20 +8,22 @@
   CBOR, BSON and workbooks; a `#format` or `#key=value` fragment on the URL; and,
   where the server serves byte ranges, reading in ranges instead of downloading
   the whole body first. A signed URL keeps working: the query string is treated as
-  part of the address and reaches the server byte for byte, and it stays out of
-  record identity, log lines and error messages. A server that ignores `Range` and
-  one that answers chunked with no `Content-Length` are read whole, as before.
-  Thanks, @hampsterx.
+  part of the address, so an escape that carries meaning (`%2F`) reaches the server
+  preserved rather than decoded, and the query stays out of record identity, log
+  lines, and the errors discovery and whole-body reads raise. A server that ignores
+  `Range` and one that answers chunked with no `Content-Length` are read whole, as
+  before. Thanks, @hampsterx.
 - HTTP: Four behaviour changes come with that move. A re-run with no
   `--incremental-strategy` now appends rather than replacing, matching the rest of
   the family, and an explicit `append` or `replace` is now honoured;
   `--incremental-key` is now rejected rather than ignored;
   `--filesystem-incremental` is refused, because an HTTP response need not carry a
   `Last-Modified` header and a missing one would read as "just now" and reload
-  everything; and connection options can no longer ride the URI query string,
-  since that is the address, so they are passed as `run_ingest` keyword arguments
-  instead. Timeouts stay at 30 seconds and environment proxy and `.netrc` settings
-  are still honoured. Thanks, @hampsterx.
+  everything; and connection options can no longer ride the URI query string, since
+  that is the address, so they are available only when building the source object
+  directly, not through `omniload ingest` or `run_ingest`. Timeouts stay at 30
+  seconds and environment proxy and `.netrc` settings are still honoured. Thanks,
+  @hampsterx.
 - Filesystem: Fixed `csv_headless`, which named columns with a Polars argument
   that *selects* columns instead. Reading a header-less CSV either failed outright
   or returned one shifted row, whether the names came from `--columns` or were
