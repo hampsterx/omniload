@@ -59,6 +59,7 @@ Supported formats for write operations are currently CSV, JSONL, and Parquet.
 | {ref}`gcs`                | Google Cloud Storage                              | gs://                           | ✅   | ✅    |
 | {ref}`gdrive`             | Google Drive                                      | gdrive://                       | ✅   | ❌    |
 | {ref}`hdfs`               | Hadoop distributed file system                    | hdfs://                         | ✅   | ❌    |
+| {ref}`http`               | Files addressed by an HTTP or HTTPS URL           | http://, https://              | ✅   | ❌    |
 | {ref}`oracle-oci`         | Oracle Cloud Infrastructure Object Storage        | oci://                          | ✅   | ❌    |
 | {ref}`onedrive`           | Microsoft OneDrive                                | onedrive://                     | ✅   | ❌    |
 | {ref}`oss`                | Alibaba Object Storage Service (OSS)              | oss://                          | ✅   | ❌    |
