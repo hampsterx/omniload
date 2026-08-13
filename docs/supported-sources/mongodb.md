@@ -33,7 +33,7 @@ URI parameters:
 Do not put the database name at the end of the URI for MongoDB, instead make it a part of `--source-table` or `--dest-table` option as `database.collection` format.
 :::
 
-The same URI structure can be used both for sources and destinations. You can read more about MongoDB's connection string format [here](https://docs.mongodb.com/manual/reference/connection-string/).
+The same URI structure can be used both for sources and destinations. You can read more about MongoDB's connection string format [here](https://www.mongodb.com/docs/manual/reference/connection-string/).
 
 ## Source table format
 
