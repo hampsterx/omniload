@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/15 v0.10.0
+
 - HTTP: Serve `http://` and `https://` through the filesystem family, so an HTTP
   URL reads with the same formats, format hints and reader hints as every other
   transport. New: gzipped documents, whole-JSON documents, XML, YAML, msgpack,
