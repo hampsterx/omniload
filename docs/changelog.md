@@ -2,6 +2,14 @@
 
 ## in progress
 
+- Azure: Scope file-level incremental cursors from connection-string sources to
+  the parsed storage account and Blob endpoint. Different accounts using the
+  same container and glob no longer share a cursor and silently skip files.
+  Existing connection-string cursors reset once on upgrade, so the first run
+  reads the selection again and `append` loads may duplicate rows. Use
+  `--full-refresh` for that first upgraded load when duplicates are unacceptable.
+  Connection strings continue to reach adlfs unchanged.
+
 ## 2026/08/15 v0.10.0
 
 - HTTP: Serve `http://` and `https://` through the filesystem family, so an HTTP

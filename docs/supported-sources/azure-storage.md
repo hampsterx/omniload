@@ -54,7 +54,11 @@ abfss://?account_name=<your_account_name>&account_key=<your_account_key>
   A complete Azure Storage connection string, as an alternative to the
   account-key, SAS-token, or service-principal fields. URL-encode the whole
   value before placing it in the URI. Connection strings can include custom
-  service endpoints for local emulators such as Azurite.
+  service endpoints for local emulators such as Azurite. The Azure Storage SDK
+  parses account-key and SAS forms, explicit `BlobEndpoint` values,
+  `DefaultEndpointsProtocol` with `EndpointSuffix`, and
+  `UseDevelopmentStorage=true`. Field names are case-insensitive, a trailing
+  semicolon is accepted, and malformed or duplicate fields are rejected.
 
 :api_version:
   Azure Storage API version override (optional, source only). Destination URIs
@@ -76,6 +80,16 @@ Account keys are base64 (containing `+`, `/`, `=`) and SAS tokens embed their
 own `&` and `=` characters. You must URL-encode credential values in the URI
 (`+` becomes `%2B`, `/` becomes `%2F`, `=` becomes `%3D`, `&` becomes `%26`).
 Unencoded values are mangled when the query string is parsed.
+:::
+
+:::{warning}
+The release that introduces account-scoped connection-string identities resets
+existing `--filesystem-incremental` cursors for connection-string sources. The
+first run after upgrading reads the selected files again. With the `append`
+strategy this can duplicate rows. If duplicates are unacceptable, use
+`--full-refresh` for that first upgraded load to drop the destination resource
+and cursor before reloading. This one-time reset prevents different storage
+accounts with the same container and glob from silently sharing a cursor.
 :::
 
 For example, write to an Azurite container by URL-encoding its connection
