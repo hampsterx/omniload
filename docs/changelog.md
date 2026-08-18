@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/18 v0.10.1
+
 - Azure: Scope file-level incremental cursors from connection-string sources to
   the parsed storage account and Blob endpoint. Different accounts using the
   same container and glob no longer share a cursor and silently skip files.
