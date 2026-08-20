@@ -74,7 +74,7 @@ realtime:<dimensions>:<metrics>:<minutes_ranges>
 - `dimensions`(required): A comma-separated list of [dimensions](https://developers.google.com/analytics/devguides/reporting/data/v1/exploration-api-schema#dimensions) to retrieve.
 - `metrics`(required): A comma-separated list of [metrics](https://developers.google.com/analytics/devguides/reporting/data/v1/exploration-api-schema#metrics) to retrieve.
 - `minutes_ranges`(optional): Allows you to specify time windows for retrieving data. You can define up to two time ranges in your query, formatted as comma-separated values (e.g., "0-5,25-29"). Each range represents minutes in the past from the current time.
-If no minute_ranges are specified, the system defaults to retrieving data from the last 30 minutes. For more information read [here](https://developers.google.com/analytics/devguides/reporting/data/v1/realtime-basics#minute_ranges)
+If no minute_ranges are specified, the system defaults to retrieving data from the last 30 minutes. For more information read [here](https://developers.google.com/analytics/devguides/reporting/data/v1/realtime-basics#minute-ranges)
 
 #### Example
 
