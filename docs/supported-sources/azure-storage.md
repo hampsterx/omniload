@@ -14,6 +14,11 @@ API as Azure Blob Storage, and uses the `adls://` and `abfss://` URL schemes.
 `omniload` supports both Azure Blob Storage and Azure Data Lake Storage as
 both data source and destination.
 
+Reading goes through [`pyarrow.fs.AzureFileSystem`], which serves flat-namespace
+and hierarchical-namespace (Gen2) accounts from one client, detects which it is
+talking to, and lists a glob in a single request. Writing goes through dlt's
+filesystem destination, which builds its own [adlfs] client.
+
 ## URI format
 
 The URI for connecting to Azure Blob Storage is structured as follows.
@@ -42,13 +47,21 @@ abfss://?account_name=<your_account_name>&account_key=<your_account_key>
 
 :sas_token:
   A Shared Access Signature token (SAS auth), alternatively to `account_key`.
+  Supply it with or without a leading `?`; both are accepted.
 
 :tenant_id, client_id, client_secret:
   Azure AD service-principal credentials (service-principal auth). All three are required together.
 
 :account_host:
-  Custom storage endpoint host (optional, for sovereign clouds or Azurite).
-  Do not supply it with `connection_string`, which carries its own endpoints.
+  Custom storage endpoint (optional, for sovereign clouds or Azurite), as
+  `hostname[:port]` with an optional `http://` or `https://` prefix. It must
+  name the storage account, either as the leading label of the host
+  (`myaccount.blob.core.chinacloudapi.cn`) or as the last path segment
+  (`http://127.0.0.1:10000/myaccount`); anything else is rejected, because the
+  reader addresses an account rather than a URL. A host carrying a `.blob.` or
+  `.dfs.` label also yields its sibling service endpoint, so a Gen2 account
+  behind a custom endpoint stays reachable. Do not supply it with
+  `connection_string`, which carries its own endpoints.
 
 :connection_string:
   A complete Azure Storage connection string, as an alternative to the
@@ -58,12 +71,16 @@ abfss://?account_name=<your_account_name>&account_key=<your_account_key>
   parses account-key and SAS forms, explicit `BlobEndpoint` values,
   `DefaultEndpointsProtocol` with `EndpointSuffix`, and
   `UseDevelopmentStorage=true`. Field names are case-insensitive, a trailing
-  semicolon is accepted, and malformed or duplicate fields are rejected.
+  semicolon is accepted, and malformed or duplicate fields are rejected. A
+  `DfsEndpoint` is honoured as given; without one, the Data Lake endpoint is
+  derived from the Blob endpoint.
 
 :api_version:
-  Azure Storage API version override (optional, source only). Destination URIs
-  ignore this parameter because adlfs does not forward it when constructing a
-  client from a connection string.
+  Not accepted on a source URI. The reader's Azure client pins the API version
+  its own SDK ships with and offers no override, so the parameter is rejected
+  with a named error rather than accepted and ignored. Destination URIs
+  continue to ignore it, and it still reaches adlfs on the
+  {ref}`database-files` staging path.
 
 :layout:
   Layout template (optional, destination only).
@@ -74,6 +91,13 @@ Supply **one** authentication mode: a `connection_string`, an `account_key`, a
 ambiguous, and a partial service-principal triplet reports the missing field.
 When using `connection_string`, omit `account_name`, `account_host`, and all
 other credential fields.
+
+A source connection string has to name its account. The reader takes the
+storage account as the root of the filesystem, so a string that identifies the
+account by endpoint alone (a bare `SharedAccessSignature` plus a custom
+`BlobEndpoint` with no `AccountName`) is rejected with a named error; add
+`AccountName` to the string, or use `account_name` with `account_key` or
+`sas_token`.
 
 :::{warning}
 Account keys are base64 (containing `+`, `/`, `=`) and SAS tokens embed their
@@ -106,6 +130,19 @@ omniload ingest \
 :::{note}
 A Gen2 account differs from a plain Blob account only by having its
 hierarchical namespace enabled, so no separate configuration is required.
+:::
+
+:::{note}
+The reader's Azure client sends the API version its bundled SDK was built
+against. Emulators lag the service, so [Azurite] rejects a newer version by
+default; start it with `--skipApiVersionCheck` to read from it.
+:::
+
+:::{note}
+Building an Azure source in Python rather than through a URI, connection
+arguments beyond the ones above are passed to `pyarrow.fs.AzureFileSystem`
+directly, so they have to be its keywords. An adlfs-only argument is rejected by
+name rather than ignored.
 :::
 
 ## Set up an Azure Storage integration
@@ -267,9 +304,12 @@ omniload ingest \
 ```
 
 
+[adlfs]: https://github.com/fsspec/adlfs
 [available layout placeholders]: https://dlthub.com/docs/dlt-ecosystem/destinations/filesystem#available-layout-placeholders
 [Azure AD app registration]: https://learn.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
 [Azure Blob Storage]: https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction
 [Azure Data Lake Storage Gen2]: https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction
+[`pyarrow.fs.AzureFileSystem`]: https://arrow.apache.org/docs/python/generated/pyarrow.fs.AzureFileSystem.html
 [managing storage account access keys]: https://learn.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage
 [shared access signatures]: https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+[Azurite]: https://github.com/Azure/Azurite

@@ -2,6 +2,30 @@
 
 ## in progress
 
+- Azure: Read `az://`, `adls://` and `abfss://` through `pyarrow.fs` instead of
+  adlfs, for the per-file open cost every glob load pays. Measured against
+  Azurite: opening and reading 300 small blobs costs 2.4 ms/blob through Arrow
+  against 6.7 ms/blob through adlfs, and a 64 MB read runs at 456 MB/s against
+  193 MB/s. Listing a glob is one recursive request, recursive only when the
+  pattern crosses a level. One client serves flat-namespace and Gen2 accounts,
+  which it detects itself, and a custom `account_host` now yields both the Blob
+  and the Data Lake endpoint so a Gen2 account behind a sovereign-cloud or
+  emulator endpoint stays reachable. Every credential mode the connector accepts
+  is carried over: account key, SAS token, service principal, and connection
+  string, and a connection string's `DfsEndpoint` is honoured as given rather
+  than derived. File-level incremental selection and its cursor identity are
+  unchanged, so no cursor resets. Writing, and the staging download that serves
+  a remote database file, continue to use adlfs. Thanks, @hampsterx.
+- Azure: Two behaviour changes come with that move. `api_version` is no longer
+  accepted on a source URI and is rejected with a named error, because Arrow
+  pins the API version its bundled SDK speaks and offers no override; an
+  emulator that enforces the version check needs to be started with
+  `--skipApiVersionCheck`. And a source connection string now has to name its
+  account: one that identifies the account by endpoint alone (a bare
+  `SharedAccessSignature` with a custom `BlobEndpoint` and no `AccountName`) is
+  rejected, because the reader takes the storage account as the root of the
+  filesystem. Thanks, @hampsterx.
+
 ## 2026/08/18 v0.10.1
 
 - Azure: Scope file-level incremental cursors from connection-string sources to
