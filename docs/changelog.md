@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/21 v0.11.0
+
 - Azure: Read `az://`, `adls://` and `abfss://` through `pyarrow.fs` instead of
   adlfs, for the per-file open cost every glob load pays. Measured against
   Azurite: opening and reading 300 small blobs costs 2.4 ms/blob through Arrow
