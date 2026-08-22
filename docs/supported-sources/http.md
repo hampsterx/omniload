@@ -64,11 +64,12 @@ Environment proxy settings and `.netrc` are honoured.
 
 ## Extended type support
 
-| Type    | Support | Remarks                                                     |
-|:--------|:--------|:------------------------------------------------------------|
-| Formats | ✅      | Every format the {ref}`filesystem <filesystem>` page lists. |
-| Ranges  | ✅      | A file is read in ranges where the server serves them.      |
-| Globs   | ❌      | One concrete URL per source; see Limitations.               |
+| Type          | Support | Remarks                                            |
+|:--------------|:--------|:---------------------------------------------------|
+| Formats       | ✅      | See {ref}`filesystem <filesystem>`.                |
+| Ranges        | ✅      | Used when the server supports them.                |
+| Globs         | ✅      | Requires an HTML directory index.                  |
+| Last modified | ✅      | Requires valid `Last-Modified` on each file.       |
 
 ## Examples
 
@@ -92,6 +93,31 @@ omniload ingest \
     --dest-table   'testdrive.data'
 ```
 
+## Directory indexes and wildcards
+
+A server that exposes an HTML directory index can be read with a glob.
+`*` selects links in one directory, while `**` follows linked subdirectories
+recursively:
+
+```sh
+omniload ingest \
+    --source-uri   'https://example.org/exports/**/*.csv' \
+    --dest-uri     'duckdb:///demo.duckdb' \
+    --dest-table   'testdrive.exports'
+```
+
+The server's index defines what can be discovered. A wildcard cannot find files
+that the index does not link.
+
+## Incremental file selection
+
+Add `--filesystem-incremental` to append rows only from new or modified files, as
+described on the {ref}`filesystem <filesystem>` page. Each selected file must
+return a valid `Last-Modified` header. A directory index does not carry that
+metadata, so an incremental glob makes one metadata request per matched file. A
+missing or malformed header stops extraction and names the query-free file URL.
+A plain, non-incremental load still works when the header is absent.
+
 ## How much is transferred
 
 Where the server honours byte ranges, the file is read in ranges rather than
@@ -108,17 +134,10 @@ in one read, independently of the transport.
 
 ## Limitations
 
-- **One concrete URL per source.** Wildcards are not supported: HTTP has no
-  listing operation, only whatever links a server happens to render, so a glob
-  cannot be resolved reliably.
-- **No incremental file selection.** `--filesystem-incremental` is refused for
-  HTTP. A response need not carry a `Last-Modified` header, and a missing one
-  would read as "just now", so every file would be reloaded on every run while the
-  run reported that it had filtered.
 - **Read only.** There is no portable way to write a file over plain HTTP.
 
-Both of the first two are the subject of ongoing work; see the {ref}`WebDAV
-<webdav>` source for an HTTP-based transport that does support listing.
+See the {ref}`WebDAV <webdav>` source for an HTTP-based transport with a defined
+listing protocol.
 
 [fsspec HTTP filesystem]: https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.implementations.http.HTTPFileSystem
 [HTTP]: https://developer.mozilla.org/en-US/docs/Web/HTTP

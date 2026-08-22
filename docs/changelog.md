@@ -2,6 +2,16 @@
 
 ## in progress
 
+- HTTP: Support `--filesystem-incremental` when every selected file returns a
+  valid `Last-Modified` header. A glob over an HTML directory index obtains the
+  timestamp with one metadata request per matched file. A concrete file reuses
+  the header already returned during discovery. A missing or malformed header
+  stops extraction and names the query-free file URL instead of receiving dlt's
+  synthesized current time and reloading on every run.
+- HTTP: Resolve `*`, `?` and recursive `**` wildcards against links exposed by a
+  HTML directory index. The server's index remains the boundary of what the
+  source can discover.
+
 ## 2026/08/21 v0.11.0
 
 - Azure: Read `az://`, `adls://` and `abfss://` through `pyarrow.fs` instead of
