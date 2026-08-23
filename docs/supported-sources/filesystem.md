@@ -95,6 +95,11 @@ state sync, while other destinations require a stable `--pipelines-dir`. Files
 at the current maximum modification time are deduplicated by their URL, and an
 older-mtime backfill requires `--full-refresh` to reset the cursor.
 
+For HTTP and HTTPS, each selected file must return a valid `Last-Modified`
+header. An incremental directory-index glob makes one metadata request per
+matched file to obtain it. A missing or malformed header stops extraction
+instead of substituting the current time.
+
 :::{note}
 `--filesystem-incremental` and `--columns` describe the reader, not the storage
 service, so they apply to every scheme on this page and mean the same thing on
