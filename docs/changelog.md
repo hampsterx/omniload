@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/24 v0.12.0
+
 - HTTP: Support `--filesystem-incremental` when every selected file returns a
   valid `Last-Modified` header. A glob over an HTML directory index obtains the
   timestamp with one metadata request per matched file. A concrete file reuses
