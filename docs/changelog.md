@@ -11,6 +11,37 @@
 - HTTP: Resolve `*`, `?` and recursive `**` wildcards against links exposed by a
   HTML directory index. The server's index remains the boundary of what the
   source can discover.
+- Table names: One quote-aware parser reads `catalog.schema.table` for every source
+  and destination, replacing six ad-hoc conventions that each did something different
+  with the same spelling. Names are right-aligned, so a shorter name keeps its shape:
+  `table` and `schema.table` are still spelled the way they were, with the MySQL and
+  SQLite routing changes below the exception to what they mean.
+  Components may be quoted individually with `"`, `` ` `` or `[]`, which is how a
+  name containing a dot is written; a whole path wrapped in one pair of backticks is
+  refused by name, because each component quotes separately. Every platform declares
+  the shape it accepts, so a name it cannot represent is rejected with a message that
+  says what the platform takes and where to put the catalog instead, rather than being
+  silently truncated or flattened. Thanks, @hampsterx.
+- Table names: A three-component name now reaches the destination's catalog. It sets
+  `project_id` on BigQuery, `catalog` on Databricks, the database on MotherDuck, and
+  `aws_data_catalog` on Athena, which had no way to reach a non-default catalog at
+  all. For Postgres, Snowflake, Redshift, MSSQL, Synapse and Trino the catalog is the
+  database the connection opens, so the first component selects it: `--dest-table
+  reporting.public.orders` connects to `reporting` whatever the URI path said. That is
+  a deliberate call, and the URI stays the way to pin one database for a run. DuckDB
+  and CrateDB keep their two-level names, since neither can address a second database
+  on one connection. Thanks, @hampsterx.
+- Table names: Three behaviour changes come with that. A dotted MySQL or SQLite
+  destination name is now routed rather than flattened: `--dest-table foo.bar` on
+  MySQL writes table `bar` in database `foo`, where it previously created one table
+  whose name normalized from the literal string `foo.bar`, and SQLite's `main.widgets`
+  no longer becomes a table called `main.widgets` in `main`. Both wrote to the wrong
+  place before, so a pipeline relying on the old spelling loads somewhere new. And a
+  three-part SQL *source* name is now refused rather than misparsed. It used to be
+  cut at the first dot, so `public.order.items` silently became schema `public` and
+  table `order.items`; SQL sources are two-level, so it now gets an error naming the
+  accepted format and pointing at `--source-uri` for the catalog. A table whose own
+  name contains a dot is spelled `public."order.items"`. Thanks, @hampsterx.
 
 ## 2026/08/21 v0.11.0
 

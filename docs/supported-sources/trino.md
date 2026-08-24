@@ -39,7 +39,7 @@ Trino supports various authentication methods:
 3. **Other Methods**: For Kerberos, JWT, or certificate-based authentication, consult your Trino administrator for the appropriate connection parameters.
 
 ## Table naming
-When specifying tables for Trino (both source and destination), use the format:
+When using Trino as a source, use the format:
 
 ```text
 schema.table_name
@@ -49,7 +49,7 @@ For example:
 - `default.users` - accesses the `users` table in the `default` schema
 - `analytics.events` - accesses the `events` table in the `analytics` schema
 
-The catalog is specified in the connection URI, not in the table name.
+The source catalog is specified in the connection URI, not in the table name. A Trino destination also accepts `catalog.schema.table`; the catalog component overrides the catalog in the connection URI for that load.
 
 ## Examples
 

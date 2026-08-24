@@ -20,6 +20,10 @@ URI parameters:
 
 The same URI structure can be used both for sources and destinations. You can read more about SQLAlchemy's Snowflake dialect [here](https://docs.snowflake.com/en/developer-guide/python-connector/sqlalchemy#connection-parameters).
 
+## Table naming
+
+Snowflake sources use `schema.table`; select the source database in the connection URI. Snowflake destinations also accept `database.schema.table`. When the database component is present in `--dest-table`, it overrides the database in `--dest-uri` for that load.
+
 ## Key-Pair Authentication
 
 Snowflake supports key-pair (JWT) authentication as an alternative to password-based authentication. To use it, pass the private key via the `private_key` query parameter instead of a password:
