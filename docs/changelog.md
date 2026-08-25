@@ -2,6 +2,10 @@
 
 ## in progress
 
+- Filesystem: build reader transformers from registration records instead of a
+  second hand-written adapter list, and expose the DuckDB CSV reader through
+  `#csv_duckdb` and `.csv_duckdb`.
+
 ## 2026/08/24 v0.12.0
 
 - HTTP: Support `--filesystem-incremental` when every selected file returns a
