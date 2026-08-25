@@ -30,6 +30,7 @@ URI does not include file extensions.
 | {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson      | #bson         | ✅   | ❌    |
 | {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor      | #cbor         | ✅   | ❌    |
 | [CSV]            | Comma-separated values with a header row        | .csv       | #csv          | ✅   | ✅    |
+| [CSV] (DuckDB)   | Comma-separated values read with DuckDB          | .csv_duckdb | #csv_duckdb   | ✅   | ❌    |
 | [CSV] (headless) | Comma-separated values without a header row     | .csv       | #csv_headless | ✅   | ❌    |
 | [JSON]           | One JSON document: an object or an array        | .json      | #json         | ✅   | ❌    |
 | [JSONL]          | Newline-delimited JSON                          | .jsonl     | #jsonl        | ✅   | ✅    |
@@ -290,7 +291,8 @@ decoding.
 
 | Format              | Library                 | Description                        |
 |:--------------------|:------------------------|:-----------------------------------|
-| CSV, JSONL, Parquet | `polars` / `pyarrow`    | Built-ins.                         |
+| CSV (`#csv`), JSONL, Parquet | `polars` / `pyarrow`    | Built-ins.                         |
+| CSV (`#csv_duckdb`)          | `duckdb`                | DuckDB-backed CSV reader.          |
 | BSON                | Dedicated in-tree codec | Needs extended-type normalization. |
 | CBOR                | `cbor`                  | Whole-file format.                 |
 | JSON                | `orjson`                | Whole-document parse.              |
