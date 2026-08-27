@@ -25,6 +25,9 @@
 - Filesystem: build reader transformers from registration records instead of a
   second hand-written adapter list, and expose the DuckDB CSV reader through
   `#csv_duckdb` and `.csv_duckdb`.
+- Connectors: Added support for Apache Pulsar, WebSockets, Redis streams.
+  Thanks, @marcomq.
+- Connectors: Removed gRPC due to found issues. Thanks, @marcomq.
 
 ## 2026/08/24 v0.12.0
 
