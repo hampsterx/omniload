@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/08/27 v0.13.0
+
 - mq-bridge: Require mq-bridge-py 0.4.7 (was 0.3.2) and add three transports:
   Redis Streams (`redis-streams+mqb://`), Apache Pulsar (`pulsar+mqb://`) and
   WebSocket (`websocket+mqb://`). Pulsar is not built into
