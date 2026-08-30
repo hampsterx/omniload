@@ -48,6 +48,14 @@ import threading
 from dataclasses import dataclass
 from typing import Callable
 
+# tikray and macropipe ship in the optional ``[reshape]`` extra, so a default
+# install has neither and ty cannot resolve them. Every deferred import of the
+# two below carries a `ty: ignore`; the repeated `unused-ignore-comment` code
+# keeps that directive quiet in an environment where the extra *is* installed
+# and the import does resolve. The imports are parenthesized so the directive
+# fits ty's documented trailing placement without `ruff`'s import sorter
+# wanting to rewrap the line and carry the comment off it.
+
 #: Guards the check-then-act against macropipe's process-global recipe registry.
 _REGISTRY_LOCK = threading.Lock()
 
@@ -157,7 +165,9 @@ def _resolve_python_callable(spec: str) -> "Callable[[dict], dict]":
 def _create_jq_mapper(program: str) -> "Callable[[dict], dict]":
     """Return a per-row mapper running the jq ``program`` per document via Tikray."""
     try:
-        from tikray import MokshaTransformation
+        from tikray import (  # ty: ignore[unresolved-import, unused-ignore-comment, unused-ignore-comment]
+            MokshaTransformation,
+        )
     except ImportError as exc:  # pragma: no cover - exercised only without the extra
         raise ImportError(
             "the jq reshape engine needs Tikray; install the optional extra: "
@@ -198,7 +208,9 @@ def _create_polars_mapper(spec: str) -> "Callable":
     """
     try:
         import polars as pl
-        from macropipe.core import MacroPipe
+        from macropipe.core import (  # ty: ignore[unresolved-import, unused-ignore-comment, unused-ignore-comment]
+            MacroPipe,
+        )
     except ImportError as exc:  # pragma: no cover - exercised only without the extra
         raise ImportError(
             "the polars reshape engine needs macropipe; install the optional extra: "
@@ -253,7 +265,9 @@ def _register_polars_recipes() -> None:
         literal ``"None"``) becomes a number or null instead of raising.
     """
     import polars as pl
-    from macropipe.registry import Registry
+    from macropipe.registry import (  # ty: ignore[unresolved-import, unused-ignore-comment, unused-ignore-comment]
+        Registry,
+    )
 
     def geojson_point_flatten(lazy_frame, struct_col, lng_alias, lat_alias):
         coordinates = (

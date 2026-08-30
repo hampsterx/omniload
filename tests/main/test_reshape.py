@@ -100,7 +100,9 @@ def test_a_foreign_recipe_of_the_same_name_is_reported():
     pytest.importorskip("macropipe")
     pytest.importorskip("polars")
 
-    from macropipe.registry import Registry
+    from macropipe.registry import (  # ty: ignore[unresolved-import, unused-ignore-comment, unused-ignore-comment]
+        Registry,
+    )
 
     def cast_number(lazy_frame, column_names):  # pragma: no cover - never called
         raise AssertionError("the foreign recipe must not be invoked")
