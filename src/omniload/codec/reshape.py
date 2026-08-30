@@ -1,9 +1,10 @@
 """Reshape transforms for the "fast transformations" harness.
 
-A reshape restructures a source document into a flat-plus-child-tables target:
-flatten nested objects, coerce types, drop/rename fields, and leave arrays as
-real lists so dlt's normalizer turns them into child tables. There are two
-execution models:
+A reshape restructures a source document into a flatter target: flatten nested
+objects, coerce types, drop/rename fields, and leave arrays as real lists rather
+than opaque JSON. Whether those lists then become child tables is the source's
+call, not the reshape's: it needs ``max_table_nesting >= 1``, which today means
+MongoDB. There are two execution models:
 
   - **per-row** (``python``, ``jq``): a ``(doc: dict) -> dict`` mapper applied
     via dlt ``add_map``, one document at a time.
@@ -42,21 +43,67 @@ typing). Cross-lane comparison therefore normalizes numerics rather than
 expecting identical column types.
 """
 
+import threading
 from dataclasses import dataclass
 from typing import Callable
+
+#: Guards the check-then-act against macropipe's process-global recipe registry.
+_REGISTRY_LOCK = threading.Lock()
 
 
 @dataclass
 class ReshapeMapper:
     """A reshape callable plus how dlt should apply it.
 
-    ``batch`` mappers take a pyarrow Table and yield many dicts (wired via
-    ``add_yield_map`` over an Arrow-mode source); per-row mappers take one dict and
-    return one dict (wired via ``add_map``).
+    ``batch`` mappers take a pyarrow Table and yield many dicts; per-row mappers
+    take one dict and return one dict. Both are wired through
+    ``add_yield_map(as_yield_map())``, which is what lets a per-row mapper survive
+    an item that is not a dict.
     """
 
     fn: Callable
     batch: bool = False
+
+    def as_yield_map(self) -> Callable:
+        """Return a generator function suitable for dlt's ``add_yield_map``.
+
+        A batch mapper already has that shape. A per-row mapper does not, and
+        cannot simply be handed to ``add_map``: dlt's ``MapItem`` enumerates a
+        Python ``list`` and passes anything else through whole, so a source
+        yielding Arrow (the default ``pyarrow`` SQL backend, or ``mmap``) would
+        hand a ``pyarrow.Table`` to a mapper whose contract is one document. So
+        rows are materialized here first.
+
+        That materialization is the cost of running a per-row engine over a
+        columnar source; the ``polars`` engine is the one that stays columnar.
+        """
+        if self.batch:
+            return self.fn
+
+        per_row = self.fn
+
+        def apply(item):
+            rows = _rows_of(item)
+            if rows is None:
+                yield per_row(item)
+                return
+            for row in rows:
+                yield per_row(row)
+
+        return apply
+
+
+def _rows_of(item):
+    """Return ``item`` as a list of dicts if it is an Arrow batch, else ``None``.
+
+    Imported lazily and probed by attribute rather than by isinstance, so this
+    module stays importable without pyarrow and covers ``Table`` and
+    ``RecordBatch`` alike.
+    """
+    to_pylist = getattr(item, "to_pylist", None)
+    if to_pylist is None or isinstance(item, (dict, list)):
+        return None
+    return to_pylist()
 
 
 def create_reshape_mapper(
@@ -97,7 +144,10 @@ def _resolve_python_callable(spec: str) -> "Callable[[dict], dict]":
         )
     module_path, _, attr = spec.partition(":")
     module = importlib.import_module(module_path)
-    fn = getattr(module, attr)
+    # Default to None rather than letting getattr raise: an absent attribute (or a
+    # spec carrying an extra colon, which lands here as one) is a spec error, and
+    # the caller only converts ValueError into a user-facing ValidationError.
+    fn = getattr(module, attr, None)
     if not callable(fn):
         raise ValueError(f"python reshape target '{spec}' is not callable")
     return fn
@@ -140,10 +190,11 @@ def _create_polars_mapper(spec: str) -> "Callable":
     batch, so a field that is null in *some* rows is fine (the recipes are
     null-safe), but a field absent from *every* row in a batch produces no
     column, and a recipe referencing it then raises a Polars
-    ``ColumnNotFoundError``. For a collection with sparse fields, pass a stable
-    ``pymongoarrow_schema`` so absent fields still materialize as null columns.
-    The harness fixture keeps all docs in one batch, so its sometimes-absent
-    money/address fields stay present-but-null.
+    ``ColumnNotFoundError``. A stable Arrow schema would avoid it, but no omniload
+    entry point exposes one yet (``pymongoarrow_schema`` reaches the adapter, not
+    ``LoadRequest``), so a sparse collection wants a per-row engine. The harness
+    fixture keeps all docs in one batch, so its sometimes-absent money/address
+    fields stay present-but-null.
     """
     try:
         import polars as pl
@@ -221,13 +272,26 @@ def _register_polars_recipes() -> None:
             [pl.col(name).cast(pl.Float64, strict=False) for name in columns]
         )
 
-    # Register each recipe independently and only if absent: macropipe's Registry is a
-    # process-global class var and Registry.register raises on a duplicate name, so a
-    # blanket "register all" would break a re-run (and a one-name guard could leave a
-    # partial set). Idempotent per name.
-    for fn in (geojson_point_flatten, cast_number):
-        if fn.__name__ not in Registry.r:
-            Registry.register(fn)
+    # Register each recipe independently and only if absent: macropipe's Registry is
+    # a process-global class var and Registry.register raises on a duplicate name, so
+    # a blanket "register all" would break a re-run (and a one-name guard could leave
+    # a partial set). Idempotent per name, and serialised, because the membership
+    # check and the register call are two operations against shared state: two
+    # threads building their first polars mapper can otherwise both see the name
+    # absent and the loser raises.
+    with _REGISTRY_LOCK:
+        for fn in (geojson_point_flatten, cast_number):
+            existing = Registry.r.get(fn.__name__)
+            if existing is None:
+                Registry.register(fn)
+            elif (
+                existing is not fn and getattr(existing, "__module__", None) != __name__
+            ):
+                raise ValueError(
+                    f"macropipe recipe '{fn.__name__}' is already registered by "
+                    f"{getattr(existing, '__module__', 'an unknown module')}; "
+                    "omniload cannot register its own under that name"
+                )
 
 
 def _to_jsonish(value):

@@ -2,7 +2,8 @@
 
 A reshape restructures each source document on its way to the destination:
 flatten nested objects into columns, coerce types, drop or rename fields, and
-leave arrays as real lists so dlt's normalizer turns them into child tables.
+leave arrays as real lists rather than opaque JSON. On a source that allows a
+level of nesting, MongoDB today, those lists then normalize into child tables.
 
 Reshapes exist for sources whose documents do not map onto a table without
 help. A deeply nested MongoDB collection is the motivating case: GeoJSON
@@ -45,22 +46,40 @@ The `polars` engine consumes Apache Arrow batches, so it requires a source that
 can deliver Arrow. Only the MongoDB source does today; a batch reshape over any
 other source is rejected before the run starts.
 
+The per-row engines work on every source. Where the source is already columnar,
+which includes SQL on the default `pyarrow` backend, rows are materialized before
+the mapper sees them. That is the cost of running per-document logic over a
+columnar batch, and it is why `polars` is the engine that stays columnar
+end to end.
+
+A bad spec, a missing extra, or a batch engine over a source that cannot feed it
+is reported by `--dry-run`, so a reshape can be checked without moving data.
+
 Passing a `(doc: dict) -> dict` callable directly is also supported through the
 [Python API](python-api.md).
 
-## Arrays become child tables
+## Arrays and child tables
 
-A reshape owns the destination schema, so omniload skips the MongoDB type
-hinting that would otherwise store top-level arrays as JSON columns. Any array
-your reshape leaves in place normalizes into a child table instead.
+Whether an array your reshape leaves in place becomes a child table or a JSON
+column is decided by the source, not by the reshape. Two things have to line up:
+the source has to allow a level of nesting (`max_table_nesting >= 1`), and
+nothing may have hinted the array as JSON before the normalizer sees it.
 
-For a document with `reviews` and `amenities` arrays loaded into
-`--dest-table public.listings`, that yields three tables:
+**MongoDB** satisfies both once a reshape is active. It allows one level of
+nesting, and omniload skips the type-hinting pass that would otherwise store
+top-level arrays as JSON columns, because a reshape owns the schema instead. For
+a document with `reviews` and `amenities` arrays loaded into `--dest-table
+public.listings`, that yields three tables:
 
 - `listings`, one row per document, with the flattened scalar columns
 - `listings__reviews`, one row per review, keyed back to the parent
 - `listings__amenities`, one row per amenity, with the scalar in a `value`
   column
+
+**Filesystem sources** do not. Their readers register `max_table_nesting = 0`,
+so a list a reshape produces there is stored as a JSON column whatever the
+reshape does with it. Flattening and coercion still work as described; only the
+array-to-child-table step is unavailable.
 
 ## Engines and type fidelity
 
@@ -118,9 +137,9 @@ instead of raising.
 :::{note}
 The `polars` engine infers its Arrow schema per batch. A field that is null in
 some rows is fine, but a field absent from *every* row in a batch produces no
-column at all, and a recipe naming it raises `ColumnNotFoundError`. For a
-collection with sparse fields, pass a stable `pymongoarrow_schema` so absent
-fields still materialize as null columns.
+column at all, and a recipe naming it raises `ColumnNotFoundError`. A stable
+Arrow schema would avoid this, but no omniload entry point exposes one yet, so
+for a collection with sparse fields prefer a per-row engine.
 :::
 
 ## Pushing the transform into the source

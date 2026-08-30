@@ -16,13 +16,20 @@
 
 - Core: Add `--reshape <engine>:<spec>`, restructuring each source document before it
   is loaded. It flattens nested objects into columns, coerces types, and leaves arrays
-  as real lists so dlt's normalizer turns them into child tables. Three engines:
+  as real lists rather than opaque JSON. Three engines:
   `python:<module>:<callable>` (per row, preserves `Decimal`), `jq:<program>` (per row,
   through Tikray) and `polars:<recipes>` (per Arrow batch, compiled through macropipe).
   The jq and Polars engines need the new `omniload[reshape]` extra, and the Polars one
   needs an Arrow-yielding source, which today means MongoDB only. While a reshape is
   active the MongoDB source no longer json-hints top-level arrays, so they land as
-  child tables rather than JSON columns.
+  child tables rather than JSON columns. That last part is MongoDB-only: filesystem
+  readers register `max_table_nesting = 0`, so a list a reshape produces there stays a
+  JSON column.
+- MongoDB: Build a `PyMongoArrowContext` per wire batch in the Arrow loaders rather
+  than once per cursor. `finish()` leaves the builders it accumulated in place, so the
+  shared context replayed each earlier batch as a row of nulls: a collection spanning
+  two batches emitted phantom all-null rows, and did so on any primary key. Reachable
+  since `data_item_format` became settable per run.
 
 ## 2026/08/27 v0.13.0
 
