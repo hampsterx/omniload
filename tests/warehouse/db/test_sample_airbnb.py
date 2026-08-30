@@ -257,7 +257,8 @@ def test_sample_airbnb_lane2_jq_matches_lane1(mongo, dest):
 def test_sample_airbnb_reshape_lane3_polars(mongo, dest):
     """Lane 3 (macropipe/Polars over Arrow batches) hits the same canonical target.
 
-    Unlike lanes 1-2 (per-row ``add_map``), this lane extracts the collection as Arrow and
+    Unlike lanes 1-2, which map one document at a time, this lane extracts the
+    collection as Arrow and
     reshapes each batch columnar via ``add_yield_map``. Same structural assertions as the
     other lanes, type-tolerant on money: Polars casts it to ``Float64`` (no Decimal), like jq.
     """
@@ -421,7 +422,7 @@ def test_sample_airbnb_lane4_pushdown_matches_lane1(mongo, dest):
 
     The comparator excludes dlt metadata and normalizes numerics, so lane 4's ``$toDouble``
     money equals lane 1's Decimal money and the fact that the reshape ran in Mongo (vs a
-    client ``add_map``) is invisible in the final tables.
+    client-side pass) is invisible in the final tables.
     """
     collection = _seed_collection(mongo)
     dest_uri = dest.start()

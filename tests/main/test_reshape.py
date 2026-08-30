@@ -81,36 +81,46 @@ def test_extra_colon_in_python_spec_raises_valueerror():
         create_reshape_mapper("python:builtins:print:extra")
 
 
-def test_polars_recipe_registration_is_idempotent_across_threads():
-    """Two threads building their first polars mapper must not race the registry.
+def test_polars_recipe_registration_is_idempotent():
+    """Building a second mapper must not trip macropipe's duplicate-name guard."""
+    pytest.importorskip("macropipe")
+    pytest.importorskip("polars")
 
-    The guard is check-then-act against macropipe's process-global registry, so
-    without a lock one thread sees the name absent, the other registers it first,
-    and the loser raises `ValueError` from deep inside mapper construction.
+    create_reshape_mapper("polars:select:a")
+    create_reshape_mapper("polars:select:a")
+
+
+def test_a_foreign_recipe_of_the_same_name_is_reported():
+    """A name already held by someone else is named, not silently accepted.
+
+    Skipping on "already present" is what makes registration idempotent, so the
+    owner has to be checked too: otherwise a third party occupying the name would
+    silently take over the reshape.
     """
     pytest.importorskip("macropipe")
     pytest.importorskip("polars")
 
-    import threading
+    from macropipe.registry import Registry
 
-    spec = "polars:select:a"
-    barrier = threading.Barrier(2)
-    errors: list[BaseException] = []
+    def cast_number(lazy_frame, column_names):  # pragma: no cover - never called
+        raise AssertionError("the foreign recipe must not be invoked")
 
-    def build():
-        barrier.wait()
-        try:
-            create_reshape_mapper(spec)
-        except BaseException as exc:  # noqa: BLE001 - the assertion is "none escaped"
-            errors.append(exc)
-
-    threads = [threading.Thread(target=build) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-    assert errors == []
+    cast_number.__module__ = "somebody.else"
+    # Snapshot both names, not just the injected one: registration walks the pair
+    # in order, so the raise on `cast_number` leaves `geojson_point_flatten`
+    # behind, and a test that fails must not hand the next one a mutated registry.
+    names = ("geojson_point_flatten", "cast_number")
+    saved = {name: Registry.r.get(name) for name in names}
+    Registry.r["cast_number"] = cast_number
+    try:
+        with pytest.raises(ValueError, match="somebody.else"):
+            create_reshape_mapper("polars:select:a")
+    finally:
+        for name, original in saved.items():
+            if original is None:
+                Registry.r.pop(name, None)
+            else:
+                Registry.r[name] = original
 
 
 def test_as_yield_map_rowifies_an_arrow_batch():

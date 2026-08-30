@@ -3,11 +3,11 @@
 A reshape restructures a source document into a flatter target: flatten nested
 objects, coerce types, drop/rename fields, and leave arrays as real lists rather
 than opaque JSON. Whether those lists then become child tables is the source's
-call, not the reshape's: it needs ``max_table_nesting >= 1``, which today means
-MongoDB. There are two execution models:
+call, not the reshape's: it needs ``max_table_nesting >= 1``, which the
+filesystem readers do not set. There are two execution models:
 
-  - **per-row** (``python``, ``jq``): a ``(doc: dict) -> dict`` mapper applied
-    via dlt ``add_map``, one document at a time.
+  - **per-row** (``python``, ``jq``): a ``(doc: dict) -> dict`` mapper, called
+    once per document.
   - **batch** (``polars``): a columnar mapper over an Apache Arrow batch,
     applied via dlt ``add_yield_map`` (it yields N dicts per Arrow table). This
     needs the source to deliver Arrow (``data_item_format="arrow"``); only the
@@ -15,8 +15,9 @@ MongoDB. There are two execution models:
     source is rejected upstream in :mod:`omniload.api`.
 
 ``create_reshape_mapper`` returns a :class:`ReshapeMapper` carrying both the
-callable and which model it uses, so the caller knows whether to wire it as
-``add_map`` (per-row) or ``add_yield_map`` over an Arrow source (batch).
+callable and which model it uses. Both are wired through
+``add_yield_map(as_yield_map())``: a per-row mapper cannot go to ``add_map``,
+because dlt would hand it a whole Arrow table on a columnar source.
 
 For Mongo sources the caller skips ``TypeHintMap`` while a reshape is active (it
 would otherwise json-hint top-level arrays into JSON columns, which prevents
@@ -183,8 +184,7 @@ def _create_polars_mapper(spec: str) -> "Callable":
 
     The returned callable takes one pyarrow Table (an extraction batch) and
     yields the reshaped rows as dicts, so dlt's normalizer builds the child
-    tables. It is wired via ``add_yield_map`` (one Arrow table in, N dicts out),
-    not ``add_map``.
+    tables. It is wired via ``add_yield_map`` (one Arrow table in, N dicts out).
 
     Per-batch schema assumption: pymongoarrow infers the Arrow schema from each
     batch, so a field that is null in *some* rows is fine (the recipes are

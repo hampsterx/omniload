@@ -15,7 +15,7 @@ import sqlite3
 import duckdb
 import pytest
 
-from omniload import run_ingest
+from omniload import ValidationError, run_ingest
 
 RESHAPE_CALLS: list[str] = []
 
@@ -68,3 +68,39 @@ def test_per_row_reshape_receives_documents_from_an_arrow_backed_source(
     finally:
         con.close()
     assert rows == [(1, "Ada Lovelace"), (2, "Grace Hopper")]
+
+
+def test_dry_run_rejects_an_unusable_reshape_spec(people_db, tmp_path):
+    """`--dry-run` has to resolve the reshape, or it validates everything but.
+
+    The reshape used to be built after the dry-run return, so a bad spec, a
+    missing extra or a batch engine over a source that cannot feed it all
+    reported success and failed only on the real run.
+    """
+    with pytest.raises(ValidationError):
+        run_ingest(
+            source_uri=f"sqlite:///{people_db}",
+            dest_uri=f"duckdb:///{tmp_path / 'warehouse.duckdb'}",
+            source_table="main.people",
+            dest_table="out.people",
+            reshape="nope:anything",
+            dry_run=True,
+            progress="log",
+        )
+
+
+def test_dry_run_rejects_a_batch_engine_the_source_cannot_feed(people_db, tmp_path):
+    """The Arrow requirement is a spec-level fact, so a dry run knows it."""
+    pytest.importorskip("macropipe")
+    pytest.importorskip("polars")
+
+    with pytest.raises(ValidationError, match="Arrow-yielding"):
+        run_ingest(
+            source_uri=f"sqlite:///{people_db}",
+            dest_uri=f"duckdb:///{tmp_path / 'warehouse.duckdb'}",
+            source_table="main.people",
+            dest_table="out.people",
+            reshape="polars:select:id",
+            dry_run=True,
+            progress="log",
+        )

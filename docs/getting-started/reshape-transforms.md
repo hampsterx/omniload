@@ -3,7 +3,7 @@
 A reshape restructures each source document on its way to the destination:
 flatten nested objects into columns, coerce types, drop or rename fields, and
 leave arrays as real lists rather than opaque JSON. On a source that allows a
-level of nesting, MongoDB today, those lists then normalize into child tables.
+level of nesting, those lists then normalize into child tables.
 
 Reshapes exist for sources whose documents do not map onto a table without
 help. A deeply nested MongoDB collection is the motivating case: GeoJSON
@@ -81,6 +81,10 @@ so a list a reshape produces there is stored as a JSON column whatever the
 reshape does with it. Flattening and coercion still work as described; only the
 array-to-child-table step is unavailable.
 
+Other sources sit in between. Couchbase, Airtable and Notion allow one level and
+Jira allows two, so a list survives as a child table there, but none of them
+carries MongoDB's type-hinting pass, so nothing had to be skipped for it to.
+
 ## Engines and type fidelity
 
 The three engines reach the same table shape but not the same column types.
@@ -90,7 +94,9 @@ decimal money matters:
 
 ```python
 def reshape_listing(doc: dict) -> dict:
-    coordinates = ((doc.get("address") or {}).get("location") or {}).get("coordinates") or []
+    coordinates = ((doc.get("address") or {}).get("location") or {}).get(
+        "coordinates"
+    ) or []
     return {
         "_id": str(doc["_id"]),
         "name": doc.get("name"),
