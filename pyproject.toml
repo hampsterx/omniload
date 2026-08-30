@@ -165,7 +165,7 @@ optional-dependencies.filesystem = [
   "smbprotocol[kerberos]; platform_system!='Linux'",
   "webdav4[fsspec]",
 ]
-optional-dependencies.full = [ "omniload[ibm-db,iterable,odbc,oracle]" ]
+optional-dependencies.full = [ "omniload[ibm-db,iterable,odbc,oracle,reshape]" ]
 optional-dependencies.ibm-db = [
   "ibm-db<4; platform_machine!='aarch64'",
   "ibm-db-sa<0.5; platform_machine!='aarch64'",
@@ -205,7 +205,9 @@ optional-dependencies.release = [
 ]
 # Transform engines for the codec reshape lanes. jq runs via tikray (which bundles
 # the `jq` bindings); the batch lane runs compiled Polars via macropipe (which
-# pulls in `polars`).
+# pulls in `polars`). Part of [full], so a container image carrying the bundle can
+# run every engine. Note that macropipe currently requires `polars<1.40`, which
+# therefore caps polars for [full] as a whole.
 optional-dependencies.reshape = [
   "macropipe<1",
   "tikray<1",
