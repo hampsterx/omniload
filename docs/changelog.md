@@ -14,6 +14,16 @@
   dependency on isal, but anything pulling `xopen` into the same environment brings it on
   x86-64 and AArch64.
 
+- Core: Add `--reshape <engine>:<spec>`, restructuring each source document before it
+  is loaded. It flattens nested objects into columns, coerces types, and leaves arrays
+  as real lists so dlt's normalizer turns them into child tables. Three engines:
+  `python:<module>:<callable>` (per row, preserves `Decimal`), `jq:<program>` (per row,
+  through Tikray) and `polars:<recipes>` (per Arrow batch, compiled through macropipe).
+  The jq and Polars engines need the new `omniload[reshape]` extra, and the Polars one
+  needs an Arrow-yielding source, which today means MongoDB only. While a reshape is
+  active the MongoDB source no longer json-hints top-level arrays, so they land as
+  child tables rather than JSON columns.
+
 ## 2026/08/27 v0.13.0
 
 - mq-bridge: Require mq-bridge-py 0.4.7 (was 0.3.2) and add three transports:
