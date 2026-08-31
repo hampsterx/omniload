@@ -2,6 +2,18 @@
 
 ## in progress
 
+- Filesystem: Give the Arrow-backed filesystems (`file://`, `s3://`, `r2://`, `az://`,
+  `hdfs://`, `rsync://`) read handles that implement `readinto`. fsspec's `ArrowFile`
+  mirrors a fixed method list from the pyarrow stream it wraps and leaves `readinto` off
+  it, so any reader that fills a caller-supplied buffer fails. Gzip is where that
+  surfaces: fsspec registers isal's `IGzipFile` as its `gzip` codec when `isal` imports
+  and the stdlib `GzipFile` only when it does not, and isal decompresses through
+  `readinto`. A `.gz` file read through any of those schemes therefore raised
+  `AttributeError: 'ArrowFile' object has no attribute 'readinto'` in an environment that
+  merely carried the package, and read fine everywhere else. omniload declares no
+  dependency on isal, but anything pulling `xopen` into the same environment brings it on
+  x86-64 and AArch64.
+
 ## 2026/08/27 v0.13.0
 
 - mq-bridge: Require mq-bridge-py 0.4.7 (was 0.3.2) and add three transports:
