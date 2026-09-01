@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/09/01 v0.14.0
+
 - Filesystem: Give the Arrow-backed filesystems (`file://`, `s3://`, `r2://`, `az://`,
   `hdfs://`, `rsync://`) read handles that implement `readinto`. fsspec's `ArrowFile`
   mirrors a fixed method list from the pyarrow stream it wraps and leaves `readinto` off
