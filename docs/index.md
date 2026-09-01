@@ -64,6 +64,7 @@ getting-started/quickstart
 getting-started/python-api
 getting-started/incremental-loading
 getting-started/data-masking
+getting-started/reshape-transforms
 supported-sources/index
 ```
 
