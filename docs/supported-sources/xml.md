@@ -3,8 +3,8 @@
 # XML
 
 `omniload` reads [XML](https://www.w3.org/XML/) files. Like BSON, MessagePack and CBOR it is a
-**read format**: it is decoded through the same filesystem readers as CSV, JSONL and Parquet, so
-any source that reads files can read XML.
+**read format**: it is decoded through the same filesystem readers as every other file
+format, so any source that reads files can read XML.
 
 There is no XML *destination*; see the {ref}`format matrix <file-formats>`
 for what `file://` writes.
