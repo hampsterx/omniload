@@ -6,7 +6,8 @@
 **read format**: it is decoded through the same filesystem readers as CSV, JSONL and Parquet, so
 any source that reads files can read YAML.
 
-There is no YAML *destination*; `file://` writes `csv`, `jsonl` and `parquet` only.
+There is no YAML *destination*; see the {ref}`format matrix <file-formats>`
+for what `file://` writes.
 
 ## Installation
 

@@ -2,6 +2,17 @@
 
 ## in progress
 
+- **Filesystem: `file://` writes JSON, and the writers are registered rather than
+  hand-wired.** `file://export/users.json` (or a `#json` hint) writes one JSON array
+  document, which is the shape the `.json` reader expects. Registering a writer is now a
+  single record in `dlt_filesystem.target.registry`, the way readers already work: the
+  supported-format tuple, the error message and the end-to-end test matrix are all
+  derived from it, and a test fails when the documentation names a different set.
+  Two writers claiming one format is now an error instead of last-one-wins.
+- **Filesystem: written files are UTF-8 whatever the process locale is.** The readers
+  decode as UTF-8 unconditionally, so a CSV or JSONL export containing non-ASCII text
+  previously failed to write, or wrote bytes it could not read back, on a machine whose
+  locale was not UTF-8.
 - Verified compatibility with Polars 2
 - **CSV: `csv://` now shares the `file://` implementation.** It stays a CSV-only
   scheme, and every existing command still resolves, but reading and writing are
