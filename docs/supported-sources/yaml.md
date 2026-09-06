@@ -2,12 +2,9 @@
 
 # YAML
 
-`omniload` reads [YAML](https://yaml.org/) files. Like BSON, MessagePack, CBOR and XML it is a
-**read format**: it is decoded through the same filesystem readers as every other file
-format, so any source that reads files can read YAML.
-
-There is no YAML *destination*; see the {ref}`format matrix <file-formats>`
-for what `file://` writes.
+`omniload` reads and writes [YAML](https://yaml.org/) files. It goes through the same
+filesystem readers and writers as every other file format, so any source that reads files
+can read YAML, and `file://` can write it.
 
 ## Installation
 
@@ -17,8 +14,8 @@ YAML support ships in the optional `iterable` extra, so it is not part of the ba
 pip install 'omniload[iterable]'
 ```
 
-If a `.yaml` / `.yml` file is loaded without the extra installed, `omniload` fails with a clear
-error naming the exact `pip install` to run, rather than a bare `ImportError`.
+If a `.yaml` / `.yml` file is read or written without the extra installed, `omniload` fails with
+a clear error naming the exact `pip install` to run, rather than a bare `ImportError`.
 
 YAML is parsed with `yaml.safe_load_all` directly, not through the `iterabledata` bridge, so a
 malformed file raises instead of silently loading zero rows and an unsafe tag is rejected rather
@@ -77,6 +74,40 @@ omniload ingest \
     --dest-uri duckdb:///local.duckdb \
     --dest-table 'public.records'
 ```
+
+## Writing YAML
+
+`file://` writes YAML when the destination path ends in `.yaml` or `.yml`, or when a
+`#yaml` {ref}`format hint <format-hint>` is appended:
+
+```sh
+omniload ingest \
+    --source-uri 'postgres://user:password@host:5432/db' \
+    --source-table 'public.users' \
+    --dest-uri 'file://export/users.yaml' \
+    --dest-table 'public.users'
+```
+
+The output is **one document holding a sequence**, one mapping per row:
+
+```yaml
+- id: 1
+  name: Alice
+- id: 2
+  name: Bob
+```
+
+A `---`-separated document per row would load back to the same rows, per the shapes
+above, but the sequence is the one that reads as a table. Keys keep the column order the
+load produced, non-ASCII text is written as itself rather than escaped, and a load with
+no rows writes an empty sequence (`[]`), which reads back as zero rows.
+
+Timestamps write as YAML timestamps and binary as `!!binary`, so both read back as
+themselves. A type YAML has no spelling for (a decimal, a time) is written as the string
+`.json` and `.jsonl` write for it, so a decimal keeps the scale a float would drop.
+
+See {ref}`the file destination <file-destination>` for the path grammar and the options
+shared with every other output format.
 
 ## Safety and extended types
 
