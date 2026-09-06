@@ -82,7 +82,13 @@ def test_write_yaml_keeps_the_column_order_of_the_row(tmp_path):
 
 
 def test_write_yaml_of_no_rows_is_an_empty_sequence(tmp_path):
-    """An empty sequence loads as zero rows; an empty *file* would raise on read."""
+    """An empty load writes an explicit empty document, not an empty file.
+
+    Both load as zero rows here -- `_yaml_eager_decode` returns early on empty input --
+    so this pins what the file *says* rather than what this reader does with it: `[]` is
+    a document every YAML parser reads as an empty sequence, where an empty file is a
+    parser-by-parser question.
+    """
     path = tmp_path / "out.yaml"
     writer_for_format("yaml")(str(path), [])
 
@@ -112,6 +118,9 @@ def test_write_yaml_spells_native_types_the_way_the_json_writers_do(tmp_path):
     text = path.read_text(encoding="utf-8")
     assert "!!binary" in text, "bytes keep YAML's own binary tag rather than a repr"
 
+    # Read with PyYAML, so these are claims about the file. Through omniload's own
+    # reader the `!!binary` becomes the base64 string `'aGk='`, which is what `.json`
+    # and `.jsonl` round-trip the same value to, by a different on-disk spelling.
     loaded = yaml.safe_load(text)[0]
     # dlt's spelling for the two types PyYAML would refuse, so a decimal keeps a scale
     # a float would drop and a time keeps its ISO form.

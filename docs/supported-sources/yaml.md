@@ -102,9 +102,11 @@ above, but the sequence is the one that reads as a table. Keys keep the column o
 load produced, non-ASCII text is written as itself rather than escaped, and a load with
 no rows writes an empty sequence (`[]`), which reads back as zero rows.
 
-Timestamps write as YAML timestamps and binary as `!!binary`, so both read back as
-themselves. A type YAML has no spelling for (a decimal, a time) is written as the string
-`.json` and `.jsonl` write for it, so a decimal keeps the scale a float would drop.
+Timestamps write as YAML timestamps and read back as datetimes. Binary writes with
+YAML's own `!!binary` tag, which the reader normalizes to a base64 string (see the table
+below), so a blob round-trips to the same value `.json` and `.jsonl` give it. A type YAML
+has no spelling for at all (a decimal, a time) is written as the string that `.json` and
+`.jsonl` write for it, so a decimal keeps the scale a float would drop.
 
 See {ref}`the file destination <file-destination>` for the path grammar and the options
 shared with every other output format.
