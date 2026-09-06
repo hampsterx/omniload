@@ -3,8 +3,8 @@
 # YAML
 
 `omniload` reads [YAML](https://yaml.org/) files. Like BSON, MessagePack, CBOR and XML it is a
-**read format**: it is decoded through the same filesystem readers as CSV, JSONL and Parquet, so
-any source that reads files can read YAML.
+**read format**: it is decoded through the same filesystem readers as every other file
+format, so any source that reads files can read YAML.
 
 There is no YAML *destination*; see the {ref}`format matrix <file-formats>`
 for what `file://` writes.
