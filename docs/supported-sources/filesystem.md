@@ -36,13 +36,14 @@ URI does not include file extensions.
 | [JSONL]          | Newline-delimited JSON                          | .jsonl       | #jsonl        | ✅   | ✅    |
 | {ref}`msgpack`   | Efficient binary serialization format           | .msgpack     | #msgpack      | ✅   | ❌    |
 | {ref}`ods`       | OpenDocument spreadsheet format                 | .ods         | #ods          | ✅   | ❌    |
+| {ref}`orc`       | Apache ORC format                               | .orc         | #orc          | ✅   | ✅    |
 | [Parquet]        | Apache Parquet format                           | .parquet     | #parquet      | ✅   | ✅    |
 | {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx        | #xlsx         | ✅   | ❌    |
 | {ref}`xml`       | XML format                                      | .xml         | #xml          | ✅   | ❌    |
 | {ref}`yaml`      | YAML format                                     | .yaml, .yml  | #yaml         | ✅   | ✅    |
 
 :::{note}
-Supported formats for write operations are currently CSV, JSON, JSONL, Parquet, and YAML.
+Supported formats for write operations are currently CSV, JSON, JSONL, ORC, Parquet, and YAML.
 :::
 
 (filesystem-types)=
@@ -298,6 +299,7 @@ decoding.
 | JSON                | `orjson`                | Whole-document parse.              |
 | MessagePack         | `iterabledata`          | Streamed record-by-record.         |
 | ODS                 | `polars`                | Whole-file format.                 |
+| ORC                 | `pyarrow`               | Striped reader and writer.         |
 | XML                 | `lxml`                  | Whole-file parse, hardened.        |
 | XLSX                | `polars`                | Whole-file format.                 |
 | YAML                | `yaml`                  | Whole-file decode, safe.           |
@@ -388,6 +390,9 @@ documentation page under "Extended-type handling".
 
 The read mechanism determines how a damaged file behaves, and it is worth knowing which
 guarantee you get.
+
+- **Empty files** raise reader errors for CSV, Parquet, and ORC. Empty JSON and
+  JSONL files yield no rows.
 
 - **Whole-file decode (CBOR, XML, YAML)** raises on a corrupt or malformed file rather than
   loading partial data. CBOR additionally must be a *single* top-level value; files that
