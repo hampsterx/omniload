@@ -32,7 +32,7 @@ URI does not include file extensions.
 | [CSV]            | Comma-separated values with a header row        | .csv       | #csv          | ✅   | ✅    |
 | [CSV] (DuckDB)   | Comma-separated values read with DuckDB          | .csv_duckdb | #csv_duckdb   | ✅   | ❌    |
 | [CSV] (headless) | Comma-separated values without a header row     | .csv       | #csv_headless | ✅   | ❌    |
-| [JSON]           | One JSON document: an object or an array        | .json      | #json         | ✅   | ❌    |
+| [JSON]           | One JSON document: an object or an array        | .json      | #json         | ✅   | ✅    |
 | [JSONL]          | Newline-delimited JSON                          | .jsonl     | #jsonl        | ✅   | ✅    |
 | {ref}`msgpack`   | Efficient binary serialization format           | .msgpack   | #msgpack      | ✅   | ❌    |
 | {ref}`ods`       | OpenDocument spreadsheet format                 | .ods       | #ods          | ✅   | ❌    |
@@ -42,7 +42,7 @@ URI does not include file extensions.
 | {ref}`yaml`      | YAML format                                     | .yaml      | #yaml         | ✅   | ❌    |
 
 :::{note}
-Supported formats for write operations are currently CSV, JSONL, and Parquet.
+Supported formats for write operations are currently CSV, JSON, JSONL, and Parquet.
 :::
 
 (filesystem-types)=
@@ -341,7 +341,8 @@ array loads as one row per element, and indentation makes no difference. A
 records are the fallback once the document does not parse as one value.
 
 :::{note}
-Only JSONL is available for write operations.
+Both are available for write operations, and each writes the shape its reader
+expects: `.jsonl` one record per line, `.json` a single array document.
 :::
 
 ### Streaming

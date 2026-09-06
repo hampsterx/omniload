@@ -6,7 +6,8 @@
 **read format**: it is decoded through the same filesystem readers as CSV, JSONL and Parquet, so
 any source that reads files can read XML.
 
-There is no XML *destination*; `file://` writes `csv`, `jsonl` and `parquet` only.
+There is no XML *destination*; see the {ref}`format matrix <file-formats>`
+for what `file://` writes.
 
 ## Installation
 
