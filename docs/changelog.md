@@ -2,6 +2,12 @@
 
 ## in progress
 
+- **Filesystem: `file://` writes YAML.** `file://export/users.yaml` (or `.yml`, or a
+  `#yaml` hint) writes one document holding a sequence, one mapping per row, which is
+  the shape the `.yaml` reader expands into a table. Keys keep the column order the load
+  produced, non-ASCII text is written as itself rather than escaped, and a load with no
+  rows writes an empty sequence. Writing YAML needs PyYAML, the same
+  `omniload[iterable]` extra that reading it needs.
 - **Filesystem: `file://` writes JSON, and the writers are registered rather than
   hand-wired.** `file://export/users.json` (or a `#json` hint) writes one JSON array
   document, which is the shape the `.json` reader expects. Registering a writer is now a

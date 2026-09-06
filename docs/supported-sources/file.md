@@ -80,13 +80,15 @@ omniload ingest \
 | `file:///srv/out.jsonl` | JSONL written to `/srv/out.jsonl` |
 | `file://export/users.json` | JSON written to `<cwd>/export/users.json` |
 | `file://export/users.parquet` | Parquet written to `<cwd>/export/users.parquet` |
+| `file://export/users.yaml` | YAML written to `<cwd>/export/users.yaml` (`.yml` too) |
 | `file://feed.dat#csv` | CSV written to `<cwd>/feed.dat` |
 
 The path grammar is identical to the source (relative-to-cwd, absolute,
 Windows drive and UNC forms all resolve the same way). Supported output formats
-are `csv`, `json`, `jsonl` and `parquet`; any other extension (or none) is rejected with
-the supported-format list. `--dest-table` must be `<dataset>.<table>`; it only
-names the intermediate layout, the output file is the URI path.
+are `csv`, `json`, `jsonl`, `parquet` and `yaml`; any other extension (or none)
+is rejected with the supported-format list. `--dest-table` must be
+`<dataset>.<table>`; it only names the intermediate layout, the output file is
+the URI path.
 
 Parent directories in the destination path are created if they don't exist, and
 an existing file at the destination is overwritten. Globs are a read-only feature

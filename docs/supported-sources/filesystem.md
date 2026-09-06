@@ -25,24 +25,24 @@ The file format is inferred from the file extension (with optional `.gz`
 suffix), or by using a {ref}`format hint <format-hint>` if your resource
 URI does not include file extensions.
 
-| Format           | Description                                     | Extensions | Format hint   | Read | Write |
-|:-----------------|:------------------------------------------------|:-----------|:--------------|:-----|:------|
-| {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson      | #bson         | ✅   | ❌    |
-| {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor      | #cbor         | ✅   | ❌    |
-| [CSV]            | Comma-separated values with a header row        | .csv       | #csv          | ✅   | ✅    |
-| [CSV] (DuckDB)   | Comma-separated values read with DuckDB          | .csv_duckdb | #csv_duckdb   | ✅   | ❌    |
-| [CSV] (headless) | Comma-separated values without a header row     | .csv       | #csv_headless | ✅   | ❌    |
-| [JSON]           | One JSON document: an object or an array        | .json      | #json         | ✅   | ✅    |
-| [JSONL]          | Newline-delimited JSON                          | .jsonl     | #jsonl        | ✅   | ✅    |
-| {ref}`msgpack`   | Efficient binary serialization format           | .msgpack   | #msgpack      | ✅   | ❌    |
-| {ref}`ods`       | OpenDocument spreadsheet format                 | .ods       | #ods          | ✅   | ❌    |
-| [Parquet]        | Apache Parquet format                           | .parquet   | #parquet      | ✅   | ✅    |
-| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx      | #xlsx         | ✅   | ❌    |
-| {ref}`xml`       | XML format                                      | .xml       | #xml          | ✅   | ❌    |
-| {ref}`yaml`      | YAML format                                     | .yaml      | #yaml         | ✅   | ❌    |
+| Format           | Description                                     | Extensions   | Format hint   | Read | Write |
+|:-----------------|:------------------------------------------------|:-------------|:--------------|:-----|:------|
+| {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson        | #bson         | ✅   | ❌    |
+| {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor        | #cbor         | ✅   | ❌    |
+| [CSV]            | Comma-separated values with a header row        | .csv         | #csv          | ✅   | ✅    |
+| [CSV] (DuckDB)   | Comma-separated values read with DuckDB          | .csv_duckdb  | #csv_duckdb   | ✅   | ❌    |
+| [CSV] (headless) | Comma-separated values without a header row     | .csv         | #csv_headless | ✅   | ❌    |
+| [JSON]           | One JSON document: an object or an array        | .json        | #json         | ✅   | ✅    |
+| [JSONL]          | Newline-delimited JSON                          | .jsonl       | #jsonl        | ✅   | ✅    |
+| {ref}`msgpack`   | Efficient binary serialization format           | .msgpack     | #msgpack      | ✅   | ❌    |
+| {ref}`ods`       | OpenDocument spreadsheet format                 | .ods         | #ods          | ✅   | ❌    |
+| [Parquet]        | Apache Parquet format                           | .parquet     | #parquet      | ✅   | ✅    |
+| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx        | #xlsx         | ✅   | ❌    |
+| {ref}`xml`       | XML format                                      | .xml         | #xml          | ✅   | ❌    |
+| {ref}`yaml`      | YAML format                                     | .yaml, .yml  | #yaml         | ✅   | ✅    |
 
 :::{note}
-Supported formats for write operations are currently CSV, JSON, JSONL, and Parquet.
+Supported formats for write operations are currently CSV, JSON, JSONL, Parquet, and YAML.
 :::
 
 (filesystem-types)=
