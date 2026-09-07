@@ -102,7 +102,9 @@ def test_csv_source_without_header(csv_testfile, tmp_path):
     else:
         assert content[0] == "column_1,column_2,column_3,column_4"
     assert content[1] == "symbol,date,isEnabled,name"
-    assert content[2] == "A,2024-04-19,true,AGILENT TECHNOLOGIES INC"
+    # `True`, not `true` as everywhere else here: read without a header every column is
+    # text, so this is the file's own literal rather than a boolean the writer spells.
+    assert content[2] == "A,2024-04-19,True,AGILENT TECHNOLOGIES INC"
 
 
 @pytest.mark.skipif(
