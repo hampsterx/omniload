@@ -7,11 +7,12 @@
   Windows, varies by version, and cannot tell gzipped CSV from gzipped JSONL because dlt
   compresses both. So `--loader-file-format csv` failed with a JSON decode error, and an
   uncompressed JSONL intermediate was refused as an unknown format. Both work now: the
-  format comes from the name dlt gave the file, CSV is read with the delimiter and encoding
-  dlt wrote it with, and the staging directory names its own files rather than inheriting a
-  configured `layout` meant for a user's real filesystem destinations. A format with no
-  row-shaped reader, such as `insert_values`, is now named in the error instead of being
-  misread as JSON.
+  format comes from the name dlt gave the file, CSV is read with the delimiter, encoding and
+  line terminator dlt wrote it with, and the staging directory names its own files rather
+  than inheriting a `layout` or `extra_placeholders` meant for a user's real filesystem
+  destinations. A format with no row-shaped reader, such as `insert_values`, is named in the
+  error instead of being misread as JSON, and a destination table in dlt's reserved `_dlt_`
+  namespace is refused rather than exported with dlt's own bookkeeping mixed into the rows.
 - **Filesystem: `file://` writes YAML.** `file://export/users.yaml` (or `.yml`, or a
   `#yaml` hint) writes one document holding a sequence, one mapping per row, which is
   the shape the `.yaml` reader expands into a table. Keys keep the column order the load
