@@ -420,21 +420,65 @@ def test_write_csv_keeps_native_spelling_in_a_one_column_file_with_a_null(tmp_pa
     )
 
 
-def test_writers_refuse_to_round_an_integer_a_double_cannot_hold(tmp_path):
-    """PyArrow refused a column holding both a large integer and a float, rather than
-    widening it and writing the integer rounded. Polars widens silently, so the frame
-    is checked before it is written: dlt splits a scalar column of two types into
-    variants but keeps a nested one whole, so a list is how this arrives in practice.
-    """
-    rows = [{"tags": [9007199254740993]}, {"tags": [0.5]}]
+# Loads whose numbers Polars would write rounded, and which PyArrow refused outright.
+# dlt splits a scalar column of two types into variants but keeps a nested one whole,
+# so a list or a struct field is how this arrives in practice.
+ROUNDED_BY_A_DOUBLE = {
+    "a bare column": [{"v": 9007199254740993}, {"v": 0.5}],
+    "a list": [{"v": [9007199254740993]}, {"v": [0.5]}],
+    "one struct field": [{"v": {"n": 9007199254740993}}, {"v": {"n": 0.5}}],
+    # Widened to lists of floats within the first row, then to lists of strings by the
+    # second, so the column's final type says nothing about the rounding on the way.
+    "a list widened twice": [{"v": [[9007199254740993], [0.5]]}, {"v": [["s"]]}],
+    # A Decimal is a number a double cannot hold either, and it is not an int.
+    "a decimal": [{"v": decimal.Decimal("9007199254740993")}, {"v": 0.5}],
+}
 
-    with pytest.raises(ValueError, match="'tags'"):
+
+@pytest.mark.parametrize("rows", ROUNDED_BY_A_DOUBLE.values(), ids=ROUNDED_BY_A_DOUBLE)
+def test_writers_refuse_to_round_a_number_a_double_cannot_hold(tmp_path, rows):
+    """PyArrow refused a column holding both a large number and a float, rather than
+    widening it and writing the number rounded. Polars widens silently, so the values
+    are compared against the frame before it is written."""
+    with pytest.raises(ValueError, match="'v'"):
         writer_for_format("parquet")(str(tmp_path / "out.parquet"), rows)
 
 
-def test_the_rounding_check_leaves_a_large_integer_alone(tmp_path):
+# The same shapes, where nothing is rounded. A check that reads the column as a whole
+# rather than value by value refuses these too, which would be worse than the bug.
+EXACT_ALONGSIDE_A_FLOAT = {
+    "separate struct fields": [{"v": {"n": 9007199254740993, "ratio": 0.5}}],
+    "separate list entries": [{"v": [{"n": 9007199254740993}, {"ratio": 0.5}]}],
+    "a large integer alone": [{"v": 9007199254740993}, {"v": 1}],
+    "a float column with no large number": [{"v": 0.1}, {"v": 0.5}],
+    "a large integer beside text": [{"v": 9007199254740993}, {"v": "x"}],
+    # The same double widening as the refused case above, with the float in its own
+    # row: Polars goes straight to text and writes every digit, so nothing is rounded
+    # and the check has to tell the two apart by the values, not by the type.
+    "a list widened twice, exactly": [
+        {"v": [[9007199254740993]]},
+        {"v": [[0.5]]},
+        {"v": [["s"]]},
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    "rows", EXACT_ALONGSIDE_A_FLOAT.values(), ids=EXACT_ALONGSIDE_A_FLOAT
+)
+def test_the_rounding_check_leaves_an_exact_load_alone(tmp_path, rows):
+    """Every value here survives as itself, so the write goes through."""
+    import pyarrow.parquet as pq
+
+    path = tmp_path / "out.parquet"
+    writer_for_format("parquet")(str(path), rows)
+
+    assert len(pq.read_table(path).to_pylist()) == len(rows)
+
+
+def test_the_rounding_check_writes_a_large_integer_as_itself(tmp_path):
     """The check is about the widening, not about the size: a large integer in a column
-    with no float in it is exact as an int64 and is written as itself."""
+    with no float in it is exact as an int64 and reads back digit for digit."""
     import pyarrow.parquet as pq
 
     path = tmp_path / "out.parquet"

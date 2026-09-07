@@ -47,61 +47,92 @@ def _frame(rows: list[dict]):
     if not any(rows):
         return pl.DataFrame()
     frame = pl.from_dicts(rows, infer_schema_length=None)
-    _refuse_rounded_integers(frame, rows)
+    _refuse_rounded_numbers(frame, rows)
     return frame
 
 
-#: The largest integer a double holds exactly. Beyond it, widening a column to float
-#: changes the value rather than its type.
+#: Past this, a double no longer holds every integer: the gap between representable
+#: values grows beyond one, so a conversion can land on a different number.
 _EXACT_IN_A_DOUBLE = 2**53
 
 
-def _holds_a_float(dtype) -> bool:
-    """Whether a column's type ends in a float, at any nesting depth."""
-    import polars as pl
-
-    if dtype in (pl.Float32, pl.Float64):
-        return True
-    if isinstance(dtype, (pl.List, pl.Array)):
-        return _holds_a_float(dtype.inner)
-    if isinstance(dtype, pl.Struct):
-        return any(_holds_a_float(field.dtype) for field in dtype.fields)
-    return False
-
-
-def _holds_an_inexact_integer(value) -> bool:
-    """Whether a value carries an integer a double cannot hold exactly."""
+def _holds_an_inexact_number(value) -> bool:
+    """Whether a value carries a number a double cannot be trusted to hold."""
     if isinstance(value, bool):
         return False
-    if isinstance(value, int):
+    if isinstance(value, (int, decimal.Decimal)):
         return abs(value) > _EXACT_IN_A_DOUBLE
     if isinstance(value, dict):
-        return any(_holds_an_inexact_integer(item) for item in value.values())
+        return any(_holds_an_inexact_number(item) for item in value.values())
     if isinstance(value, (list, tuple)):
-        return any(_holds_an_inexact_integer(item) for item in value)
+        return any(_holds_an_inexact_number(item) for item in value)
     return False
 
 
-def _refuse_rounded_integers(frame, rows: list[dict]) -> None:
-    """Refuse a load Polars would widen from integer to float lossily.
+def _reads_back_as(source, written) -> bool:
+    """Whether the frame still holds the number that went into it."""
+    try:
+        return decimal.Decimal(str(written)) == decimal.Decimal(source)
+    except (ArithmeticError, ValueError, TypeError):
+        # Not a pair of numbers to compare, so not this check's business.
+        return True
 
-    A column holding both an integer past a double's exact range and a float becomes a
-    float column, and the integer is written rounded. PyArrow refused this outright
+
+def _refuse_a_rounded_number(name: str, source, written) -> None:
+    """Compare one value against what the frame made of it, position by position.
+
+    Positional rather than by type, because a column's final type does not say what
+    happened on the way to it. Polars widens a column across the whole load, and a
+    later widening hides an earlier one: a list of a large integer beside a list of a
+    float becomes a list of floats, and one more row of strings turns that into a list
+    of strings, so nothing in the type it ends up with says a number was rounded. By
+    key and by index also keeps an unrelated field out of it, where reading the column
+    as a whole would refuse a struct whose integer and float are separate fields and
+    both exact.
+    """
+    if source is None or isinstance(source, bool):
+        return
+    if isinstance(source, (int, decimal.Decimal)):
+        if written is not None and not _reads_back_as(source, written):
+            raise ValueError(
+                f"Column '{name}' carries the number {source}, which this format "
+                f"would write as {written}: the column holds a float, and a double "
+                "does not represent that number exactly. Write this load to a JSON, "
+                "JSONL or YAML destination, which keep the number as itself."
+            )
+        return
+    if isinstance(source, dict) and isinstance(written, dict):
+        for key, value in source.items():
+            _refuse_a_rounded_number(name, value, written.get(key))
+    elif (
+        isinstance(source, (list, tuple))
+        and isinstance(written, (list, tuple))
+        and len(source) == len(written)
+    ):
+        for value, item in zip(source, written):
+            _refuse_a_rounded_number(name, value, item)
+
+
+def _refuse_rounded_numbers(frame, rows: list[dict]) -> None:
+    """Refuse a load whose numbers Polars would write rounded.
+
+    A column holding a number past a double's exact range alongside a float becomes a
+    float column, and the number is written rounded. PyArrow refused this outright
     (``Integer value ... is outside of the range exactly representable``), so a load
     that used to stop with an error would otherwise now finish with a wrong number in
     it. dlt splits a scalar column of two types into variants, but keeps a nested one
     as a single JSON column, so a list or a struct is how this arrives.
+
+    The scan runs only when the load carries a number that large, which is what keeps
+    it off every other write.
     """
-    for name, dtype in frame.schema.items():
-        if not _holds_a_float(dtype):
-            continue
-        if any(_holds_an_inexact_integer(row.get(name)) for row in rows):
-            raise ValueError(
-                f"Column '{name}' holds an integer larger than a double represents "
-                "exactly, alongside a float, so writing it would round the integer. "
-                "Write this load to a JSON, JSONL or YAML destination, which keep the "
-                "integer as itself."
-            )
+    if not any(
+        _holds_an_inexact_number(value) for row in rows for value in row.values()
+    ):
+        return
+    for name in frame.columns:
+        for row, written in zip(rows, frame[name].to_list()):
+            _refuse_a_rounded_number(name, row.get(name), written)
 
 
 #: Types a CSV column cannot hold. A ``Decimal`` is here rather than left to Polars
