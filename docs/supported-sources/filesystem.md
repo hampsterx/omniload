@@ -37,7 +37,7 @@ URI does not include file extensions.
 | {ref}`msgpack`   | Efficient binary serialization format           | .msgpack     | #msgpack      | ✅   | ❌    |
 | {ref}`ods`       | OpenDocument spreadsheet format                 | .ods         | #ods          | ✅   | ❌    |
 | {ref}`orc`       | Apache ORC format                               | .orc         | #orc          | ✅   | ✅    |
-| [Parquet]        | Apache Parquet format                           | .parquet     | #parquet      | ✅   | ✅    |
+| {ref}`parquet`   | Apache Parquet format                           | .parquet     | #parquet      | ✅   | ✅    |
 | {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx        | #xlsx         | ✅   | ❌    |
 | {ref}`xml`       | XML format                                      | .xml         | #xml          | ✅   | ❌    |
 | {ref}`yaml`      | YAML format                                     | .yaml, .yml  | #yaml         | ✅   | ✅    |
@@ -283,8 +283,8 @@ databases are sources only.
 
 omniload reads each file format through the best available path rather than
 one generic reader. This section explains how that routing works, so the
-individual per-format pages (BSON, CBOR, MessagePack, XML, YAML) can stay
-focused on how to use each format.
+individual per-format pages (BSON, CBOR, MessagePack, ORC, Parquet, XML,
+YAML) can stay focused on how to use each format.
 
 In general, omniload builds mostly upon the excellent fsspec, polars and
 iterabledata packages for local and remote filesystem access and format
@@ -292,7 +292,7 @@ decoding.
 
 | Format              | Library                 | Description                        |
 |:--------------------|:------------------------|:-----------------------------------|
-| CSV (`#csv`), JSONL, Parquet | `polars` / `pyarrow`    | Built-ins.                         |
+| CSV (`#csv`), JSONL          | `polars` / `pyarrow`    | Built-ins.                         |
 | CSV (`#csv_duckdb`)          | `duckdb`                | DuckDB-backed CSV reader.          |
 | BSON                | Dedicated in-tree codec | Needs extended-type normalization. |
 | CBOR                | `cbor`                  | Whole-file format.                 |
@@ -300,6 +300,7 @@ decoding.
 | MessagePack         | `iterabledata`          | Streamed record-by-record.         |
 | ODS                 | `polars`                | Whole-file format.                 |
 | ORC                 | `pyarrow`               | Striped reader and writer.         |
+| Parquet             | `pyarrow`               | Whole-file format.                 |
 | XML                 | `lxml`                  | Whole-file parse, hardened.        |
 | XLSX                | `polars`                | Whole-file format.                 |
 | YAML                | `yaml`                  | Whole-file decode, safe.           |
@@ -409,6 +410,5 @@ guarantee you get.
 [iterabledata]: https://pypi.org/project/iterabledata/
 [JSON]: https://en.wikipedia.org/wiki/JSON
 [JSONL]: https://en.wikipedia.org/wiki/JSON_streaming#JSONL
-[Parquet]: https://en.wikipedia.org/wiki/Apache_Parquet
 [polars.read_csv]: https://docs.pola.rs/api/python/stable/reference/api/polars.read_csv.html
 [polars.read_excel]: https://docs.pola.rs/api/python/stable/reference/api/polars.read_excel.html
