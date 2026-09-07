@@ -26,16 +26,72 @@ def _column_union(rows: list[dict]) -> list[str]:
     return fieldnames
 
 
+def _frame(rows: list[dict]):
+    """Build a Polars frame over every column any row carries.
+
+    ``infer_schema_length=None`` reads every row rather than the first 100, because
+    dlt omits null keys per row: a column can first appear anywhere in the load, and
+    the default window would drop one that first appears past it. Polars fills the
+    gaps with null and keeps first-seen key order, which is what ``_column_union``
+    was built by hand to do for the writers that predate this.
+
+    An empty load has no keys to infer from, so it becomes a frame with no columns
+    rather than an error.
+    """
+    import polars as pl
+
+    if not rows:
+        return pl.DataFrame()
+    return pl.from_dicts(rows, infer_schema_length=None)
+
+
+def _spell_for_csv(value):
+    """Spell a value CSV cannot hold the way the JSON writers spell it.
+
+    The same rule ``_yaml_dumper`` follows for the types PyYAML refuses: ask dlt's own
+    serializer. A nested document becomes its JSON text and ``bytes`` become the base64
+    string ``.json`` and ``.jsonl`` already write for it, so one value reads the same
+    whichever format the export names.
+    """
+    from dlt.common import json
+
+    if value is None:
+        return None
+    spelled = json.loads(json.dumps(value))
+    # A scalar dlt spells as a string (base64 bytes, an ISO timestamp) is that string,
+    # not a quoted JSON document; anything structural keeps its JSON text.
+    return spelled if isinstance(spelled, str) else json.dumps(spelled)
+
+
 def write_csv(path: str, rows: list[dict]) -> None:
-    """CSV writer using csv.DictWriter"""
-    import csv
+    """CSV writer using Polars.
 
-    fieldnames = _column_union(rows)
+    ``line_terminator`` is CRLF because that is what this destination has always
+    written (``csv.DictWriter`` defaults to it, as does RFC 4180) and Polars defaults
+    to LF; the migration is about the column union, not about changing the bytes of
+    every existing export.
 
-    with open(path, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, restval="")
-        writer.writeheader()
-        writer.writerows(rows)
+    CSV is flat, so Polars refuses a struct, list or binary column outright where
+    ``csv.DictWriter`` accepted one and wrote ``str()`` of it: ``{'a': 1}`` for a nested
+    document and ``b'hi'`` for binary, neither valid JSON nor readable back. A nested
+    source reaches this on the default load path, so those columns are encoded rather
+    than left to abort the export.
+    """
+    import polars as pl
+
+    frame = _frame(rows)
+    flat = [
+        # `.to_list()` rather than iterating the column: a list column yields a
+        # `Series` per element, which dlt's serializer does not know.
+        pl.Series(
+            name, [_spell_for_csv(v) for v in frame[name].to_list()], dtype=pl.String
+        )
+        for name, dtype in frame.schema.items()
+        if dtype.base_type() in {pl.Struct, pl.List, pl.Array, pl.Binary, pl.Object}
+    ]
+    if flat:
+        frame = frame.with_columns(flat)
+    frame.write_csv(path, line_terminator="\r\n")
 
 
 def write_json(path: str, rows: list[dict]) -> None:
@@ -76,17 +132,15 @@ def write_orc(path: str, rows: list[dict]) -> None:
 
 
 def write_parquet(path: str, rows: list[dict]) -> None:
-    """Parquet writer using pyarrow"""
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    """Parquet writer using Polars.
 
-    # Explicit columns, not pa.Table.from_pylist: that infers the schema from the first
-    # row only, so a column that first appears in a later row would be silently dropped.
-    # Missing values become None, so every row contributes its full key set.
-    fieldnames = _column_union(rows)
-
-    columns = {name: [row.get(name) for row in rows] for name in fieldnames}
-    pq.write_table(pa.table(columns), path)
+    ``compression`` is Snappy because that is what this destination has always written
+    (PyArrow's default) and Polars defaults to Zstd. Zstd is the smaller of the two and
+    every current reader handles it, but a codec is a thing a consumer either supports
+    or fails on, so it is named here rather than changed as a side effect of moving
+    libraries.
+    """
+    _frame(rows).write_parquet(path, compression="snappy")
 
 
 def write_yaml(path: str, rows: list[dict]) -> None:

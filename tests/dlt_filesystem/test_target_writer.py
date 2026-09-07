@@ -1,5 +1,6 @@
 """The writers themselves: what lands on disk, independent of the URI plumbing."""
 
+import csv
 import datetime
 import decimal
 import json
@@ -179,3 +180,101 @@ def test_writers_emit_utf8_whatever_the_locale(tmp_path):
     for file_format in text_formats:
         written = (tmp_path / f"out.{file_format}").read_bytes().decode("utf-8")
         assert "Zoë" in written and "Ōtautahi" in written, file_format
+
+
+# --- the columnar writers, on Polars (#328) ---
+
+# One row past Polars' default inference window, which is 100 rows.
+PAST_THE_WINDOW = [{"id": i} for i in range(150)] + [{"id": 150, "late": "x"}]
+
+
+def test_write_csv_keeps_a_column_that_first_appears_past_the_inference_window(
+    tmp_path,
+):
+    """dlt omits null keys per row, so a column can first appear anywhere in a load.
+
+    Polars infers a schema from the first 100 rows unless told otherwise, and this
+    fixture puts the only row carrying `late` well past that, so a default-window
+    inference drops the column from the header rather than failing.
+    """
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), PAST_THE_WINDOW)
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "id,late"
+    assert lines[-1] == "150,x"
+
+
+def test_write_parquet_keeps_a_column_that_first_appears_past_the_inference_window(
+    tmp_path,
+):
+    """The same window, for the writer whose schema is the file's own."""
+    import pyarrow.parquet as pq
+
+    path = tmp_path / "out.parquet"
+    writer_for_format("parquet")(str(path), PAST_THE_WINDOW)
+
+    table = pq.read_table(path)
+    assert table.column_names == ["id", "late"]
+    assert table.to_pylist()[-1] == {"id": 150, "late": "x"}
+
+
+def test_write_csv_keeps_crlf_line_endings(tmp_path):
+    """What this destination has always written -- `csv.DictWriter` defaults to CRLF,
+    as does RFC 4180 -- where Polars defaults to LF. Asserted on the bytes, because a
+    text-mode read translates the ending away and would pass either way."""
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), ROWS)
+
+    assert path.read_bytes().startswith(b"id,name,note\r\n")
+    assert b"\r\n" in path.read_bytes().split(b"\r\n", 1)[1]
+
+
+def test_write_csv_writes_a_nested_value_as_json(tmp_path):
+    """A nested document reaches a CSV export from any JSON-shaped source, and Polars
+    refuses a struct or list column outright. It is encoded rather than left to abort,
+    and as JSON rather than as the `str()` of a Python object: the replaced writer wrote
+    `{'a': 1}`, which is valid neither as JSON nor as anything a reader parses.
+    """
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(
+        str(path), [{"id": 1, "meta": {"a": 1, "b": "x"}, "tags": ["p", "q"]}]
+    )
+
+    row = next(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+    assert json.loads(row["meta"]) == {"a": 1, "b": "x"}
+    assert json.loads(row["tags"]) == ["p", "q"]
+
+
+def test_write_csv_spells_bytes_the_way_the_json_writers_do(tmp_path):
+    """`--loader-file-format parquet` hands a writer native `bytes`, and CSV has no
+    column type for them. The replaced writer wrote the Python repr `b'hi'`; this
+    writes the base64 string `.jsonl` writes for the same value, so one column reads
+    the same whichever format the export names.
+    """
+    rows = [{"blob": b"hi"}]
+    csv_path, jsonl_path = tmp_path / "out.csv", tmp_path / "out.jsonl"
+    writer_for_format("csv")(str(csv_path), rows)
+    writer_for_format("jsonl")(str(jsonl_path), rows)
+
+    cell = next(csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()))
+    assert cell["blob"] == json.loads(jsonl_path.read_text(encoding="utf-8"))["blob"]
+    assert cell["blob"] == "aGk="
+
+
+def test_write_parquet_keeps_snappy_compression(tmp_path):
+    """PyArrow's default and this destination's output to date. Polars defaults to
+    Zstd, which is smaller but is a codec a consumer either supports or fails on, so
+    the migration pins the one already being written."""
+    import pyarrow.parquet as pq
+
+    path = tmp_path / "out.parquet"
+    writer_for_format("parquet")(str(path), ROWS)
+
+    metadata = pq.ParquetFile(path).metadata
+    codecs = {
+        metadata.row_group(group).column(column).compression
+        for group in range(metadata.num_row_groups)
+        for column in range(metadata.num_columns)
+    }
+    assert codecs == {"SNAPPY"}

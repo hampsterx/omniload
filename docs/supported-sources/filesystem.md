@@ -381,11 +381,17 @@ Some values are made portable by the decoder itself rather than by omniload:
 `cbor2` decodes the standard CBOR tags (datetime, big integers, decimals)
 into native Python types directly.
 
-Those load into Parquet and SQL destinations, but a native decimal cannot
-be serialized to a JSONL *file* destination, so use a Parquet or SQL
-destination for data that carries decimals. Nested maps and arrays are
-handled recursively. The exact per-format mapping is on each format's own
-documentation page under "Extended-type handling".
+Those reach every file destination intact. A format with no column type of its own
+for a value writes it as text rather than refusing it, so a decimal lands in a JSON,
+JSONL, YAML or CSV file as `1.50`, with the scale a float would drop, while Parquet
+carries it as a decimal column. Nested maps and arrays are handled recursively. The exact
+per-format mapping is on each format's own documentation page under
+"Extended-type handling".
+
+CSV is the one write format with neither a nested nor a binary column type. A struct,
+a list or a `bytes` value is written there the way the JSON writers write it: JSON
+text for a document, a base64 string for binary. So a nested source exports to CSV
+rather than failing, and the cell holds something a reader can parse.
 
 ### Integrity and truncation
 

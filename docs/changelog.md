@@ -2,6 +2,22 @@
 
 ## in progress
 
+- **Filesystem: `file://` writes CSV and Parquet through Polars.** Both writers built
+  their column union by hand, because dlt omits a null key rather than writing it, and
+  Polars builds that union itself from every row of the load. Four output changes come
+  with the move, all of them in what a value looks like rather than in which rows are
+  written. A boolean writes as `true` / `false` in CSV instead of `True` / `False`,
+  which is what the JSON and YAML writers already emit for the same value. A nested
+  document writes as JSON (`{"a": 1}`) instead of as a Python repr (`{'a': 1}`), which
+  no reader could parse, and binary as the base64 string the JSON writers use instead
+  of as `b'hi'`. Under `--loader-file-format parquet`, the one load path that hands a
+  writer native values, a time column carries nanosecond rather than microsecond
+  precision, a datetime writes ISO 8601 with a `T` separator, and a Parquet decimal
+  column is declared with the format's maximum precision rather than the source's,
+  which leaves the values and their scale as they were. CRLF line endings and Snappy
+  Parquet compression are unchanged, as are the column types in a Parquet file: a
+  reader that reports Arrow types shows `large_string` where it showed `string`,
+  which is the Arrow schema travelling alongside, not the file's own.
 ## 2026/09/07 v0.15.0
 
 - **Filesystem: `file://` reads back every intermediate format dlt stages.** The staged
