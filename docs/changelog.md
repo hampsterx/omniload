@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/09/07 v0.15.0
+
 - **Filesystem: `file://` reads back every intermediate format dlt stages.** The staged
   files were typed by running `file(1)` and matching its English output, which is absent on
   Windows, varies by version, and cannot tell gzipped CSV from gzipped JSONL because dlt
