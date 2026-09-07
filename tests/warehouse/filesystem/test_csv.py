@@ -30,7 +30,7 @@ def test_csv_source_without_hints(csv_testfile, tmp_path):
     # Validate output file content.
     content = csv_outfile.read_text().splitlines()
     assert content[0] == "symbol,date,is_enabled,name"
-    assert content[1] == "A,2024-04-19,True,AGILENT TECHNOLOGIES INC"
+    assert content[1] == "A,2024-04-19,true,AGILENT TECHNOLOGIES INC"
 
 
 @pytest.mark.skipif(
@@ -102,7 +102,7 @@ def test_csv_source_without_header(csv_testfile, tmp_path):
     else:
         assert content[0] == "column_1,column_2,column_3,column_4"
     assert content[1] == "symbol,date,isEnabled,name"
-    assert content[2] == "A,2024-04-19,True,AGILENT TECHNOLOGIES INC"
+    assert content[2] == "A,2024-04-19,true,AGILENT TECHNOLOGIES INC"
 
 
 @pytest.mark.skipif(
@@ -125,5 +125,5 @@ def test_csv_source_with_n_rows(csv_testfile, tmp_path):
     # Validate output file content: header plus exactly two data rows.
     content = csv_outfile.read_text().splitlines()
     assert len(content) == 3
-    assert content[1] == "A,2024-04-19,True,AGILENT TECHNOLOGIES INC"
-    assert content[2] == "AA,2024-04-19,True,ALCOA CORP"
+    assert content[1] == "A,2024-04-19,true,AGILENT TECHNOLOGIES INC"
+    assert content[2] == "AA,2024-04-19,true,ALCOA CORP"
