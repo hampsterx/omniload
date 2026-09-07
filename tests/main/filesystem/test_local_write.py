@@ -521,10 +521,19 @@ def test_parquet_keeps_native_types_through_a_forced_parquet_intermediate(tmp_pa
     )
     assert result.exit_code == 0, result.output
 
+    import pyarrow.parquet as pq
+
     row = _read_back(out_path, "parquet")[0]
     assert row["price"] == decimal.Decimal("1.50")
     assert row["blob"] == b"hi"
     assert row["at"] == datetime.time(9, 30)
+    # `Decimal("1.50") == 1.5` is true, so the value assertion above passes for a double
+    # column too. The column type is what says the scale survived the round trip.
+    import pyarrow as pa
+
+    price_type = pq.read_table(out_path).schema.field("price").type
+    assert pa.types.is_decimal(price_type), price_type
+    assert price_type.scale == 2
 
 
 def test_nested_source_reaches_a_csv_export_as_json(tmp_path):

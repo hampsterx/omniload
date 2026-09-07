@@ -6,6 +6,8 @@ rejects anything else, and Polars defaults to it), so a locale-encoded export wo
 read back on the machine that wrote it.
 """
 
+import decimal
+
 from dlt_filesystem.source.error import MissingDecoderError
 
 
@@ -35,14 +37,77 @@ def _frame(rows: list[dict]):
     gaps with null and keeps first-seen key order, which is what ``_column_union``
     was built by hand to do for the writers that predate this.
 
-    An empty load has no keys to infer from, so it becomes a frame with no columns
-    rather than an error.
+    A load with no keys to infer from becomes a frame with no columns rather than an
+    error. That is an empty load, and also a load whose rows are all null: dlt omits a
+    null key rather than writing it, so every row arrives as ``{}`` and Polars refuses
+    a frame with height but no width.
     """
     import polars as pl
 
-    if not rows:
+    if not any(rows):
         return pl.DataFrame()
-    return pl.from_dicts(rows, infer_schema_length=None)
+    frame = pl.from_dicts(rows, infer_schema_length=None)
+    _refuse_rounded_integers(frame, rows)
+    return frame
+
+
+#: The largest integer a double holds exactly. Beyond it, widening a column to float
+#: changes the value rather than its type.
+_EXACT_IN_A_DOUBLE = 2**53
+
+
+def _holds_a_float(dtype) -> bool:
+    """Whether a column's type ends in a float, at any nesting depth."""
+    import polars as pl
+
+    if dtype in (pl.Float32, pl.Float64):
+        return True
+    if isinstance(dtype, (pl.List, pl.Array)):
+        return _holds_a_float(dtype.inner)
+    if isinstance(dtype, pl.Struct):
+        return any(_holds_a_float(field.dtype) for field in dtype.fields)
+    return False
+
+
+def _holds_an_inexact_integer(value) -> bool:
+    """Whether a value carries an integer a double cannot hold exactly."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return abs(value) > _EXACT_IN_A_DOUBLE
+    if isinstance(value, dict):
+        return any(_holds_an_inexact_integer(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_holds_an_inexact_integer(item) for item in value)
+    return False
+
+
+def _refuse_rounded_integers(frame, rows: list[dict]) -> None:
+    """Refuse a load Polars would widen from integer to float lossily.
+
+    A column holding both an integer past a double's exact range and a float becomes a
+    float column, and the integer is written rounded. PyArrow refused this outright
+    (``Integer value ... is outside of the range exactly representable``), so a load
+    that used to stop with an error would otherwise now finish with a wrong number in
+    it. dlt splits a scalar column of two types into variants, but keeps a nested one
+    as a single JSON column, so a list or a struct is how this arrives.
+    """
+    for name, dtype in frame.schema.items():
+        if not _holds_a_float(dtype):
+            continue
+        if any(_holds_an_inexact_integer(row.get(name)) for row in rows):
+            raise ValueError(
+                f"Column '{name}' holds an integer larger than a double represents "
+                "exactly, alongside a float, so writing it would round the integer. "
+                "Write this load to a JSON, JSONL or YAML destination, which keep the "
+                "integer as itself."
+            )
+
+
+#: Types a CSV column cannot hold. A ``Decimal`` is here rather than left to Polars
+#: because Polars stops at 128-bit decimals, where PyArrow reached for a 256-bit one:
+#: a ``DECIMAL(50,2)`` column survived the replaced writer and would abort this one.
+_UNSPELLABLE_IN_CSV = (dict, list, tuple, bytes, bytearray, decimal.Decimal)
 
 
 def _spell_for_csv(value):
@@ -58,9 +123,34 @@ def _spell_for_csv(value):
     if value is None:
         return None
     spelled = json.loads(json.dumps(value))
-    # A scalar dlt spells as a string (base64 bytes, an ISO timestamp) is that string,
-    # not a quoted JSON document; anything structural keeps its JSON text.
+    # A scalar dlt spells as a string (base64 bytes, a decimal keeping its scale) is
+    # that string, not a quoted JSON document; anything structural keeps its JSON text.
     return spelled if isinstance(spelled, str) else json.dumps(spelled)
+
+
+def _spell_rows_for_csv(rows: list[dict]) -> list[dict]:
+    """Spell those values before Polars sees them, not after.
+
+    Polars types a column across the whole load, so a nested value read back out of a
+    frame is no longer the value dlt produced: two rows carrying different keys come
+    back with each other's keys as null, a list of one large integer beside a list of
+    one float comes back rounded through f64, and a list mixing types does not build
+    at all. dlt keeps a nested column as one JSON column rather than splitting it into
+    variants, so all three are reachable on the default load path.
+    """
+    if not any(
+        isinstance(value, _UNSPELLABLE_IN_CSV) for row in rows for value in row.values()
+    ):
+        return rows
+    return [
+        {
+            key: _spell_for_csv(value)
+            if isinstance(value, _UNSPELLABLE_IN_CSV)
+            else value
+            for key, value in row.items()
+        }
+        for row in rows
+    ]
 
 
 def write_csv(path: str, rows: list[dict]) -> None:
@@ -74,24 +164,22 @@ def write_csv(path: str, rows: list[dict]) -> None:
     CSV is flat, so Polars refuses a struct, list or binary column outright where
     ``csv.DictWriter`` accepted one and wrote ``str()`` of it: ``{'a': 1}`` for a nested
     document and ``b'hi'`` for binary, neither valid JSON nor readable back. A nested
-    source reaches this on the default load path, so those columns are encoded rather
+    source reaches this on the default load path, so those values are spelled rather
     than left to abort the export.
     """
-    import polars as pl
-
-    frame = _frame(rows)
-    flat = [
-        # `.to_list()` rather than iterating the column: a list column yields a
-        # `Series` per element, which dlt's serializer does not know.
-        pl.Series(
-            name, [_spell_for_csv(v) for v in frame[name].to_list()], dtype=pl.String
-        )
-        for name, dtype in frame.schema.items()
-        if dtype.base_type() in {pl.Struct, pl.List, pl.Array, pl.Binary, pl.Object}
-    ]
-    if flat:
-        frame = frame.with_columns(flat)
-    frame.write_csv(path, line_terminator="\r\n")
+    frame = _frame(_spell_rows_for_csv(rows))
+    # A record whose every field is null is a blank line in a one-column file, and a
+    # blank line is not a record to most readers, so the row is lost on the way back
+    # in. The csv module quoted a lone empty field for exactly this reason. Quoting
+    # the file is what reproduces that here: filling the null instead would mean
+    # casting the column to text, which would change how a date or a float is spelled
+    # in the one file that happens to carry a null.
+    lone_null_column = frame.width == 1 and frame.null_count().row(0)[0]
+    frame.write_csv(
+        path,
+        line_terminator="\r\n",
+        quote_style="always" if lone_null_column else "necessary",
+    )
 
 
 def write_json(path: str, rows: list[dict]) -> None:

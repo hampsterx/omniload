@@ -4,6 +4,7 @@ import csv
 import datetime
 import decimal
 import json
+import math
 import os
 import subprocess
 import sys
@@ -226,8 +227,10 @@ def test_write_csv_keeps_crlf_line_endings(tmp_path):
     path = tmp_path / "out.csv"
     writer_for_format("csv")(str(path), ROWS)
 
-    assert path.read_bytes().startswith(b"id,name,note\r\n")
-    assert b"\r\n" in path.read_bytes().split(b"\r\n", 1)[1]
+    written = path.read_bytes()
+    assert written.startswith(b"id,name,note\r\n")
+    assert written.endswith(b"\r\n")
+    assert b"\n" not in written.replace(b"\r\n", b"")
 
 
 def test_write_csv_writes_a_nested_value_as_json(tmp_path):
@@ -278,3 +281,173 @@ def test_write_parquet_keeps_snappy_compression(tmp_path):
         for column in range(metadata.num_columns)
     }
     assert codecs == {"SNAPPY"}
+
+
+def test_write_csv_of_no_rows_writes_the_header_line_it_always_has(tmp_path):
+    """An empty load writes one empty line, which is what `csv.DictWriter` produced for
+    a header of no columns. Asserted on the bytes because both an empty file and this
+    one read back as zero rows, so the end-to-end case cannot tell them apart."""
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [])
+
+    assert path.read_bytes() == b"\r\n"
+
+
+def test_write_csv_keeps_float_values_through_a_spelling_change(tmp_path):
+    """Polars spells some floats differently from `str()`: `1e-05` writes as `0.00001`,
+    `1e-07` as `1e-7`, and a NaN as `NaN`. The spelling is cosmetic and the value is
+    not, so this pins the values rather than the text a Polars release chooses.
+    """
+    values = [1e-5, 1e-7, 1e20, 1e308, 5e-324, 0.1, -0.0, float("inf")]
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [{"a": value} for value in values])
+
+    read_back = [
+        float(row["a"])
+        for row in csv.DictReader(path.read_text(encoding="utf-8").splitlines())
+    ]
+    assert read_back == values
+    # `-0.0 == 0.0`, so the sign is asserted rather than left to the comparison above.
+    assert math.copysign(1, read_back[values.index(-0.0)]) == -1
+    # NaN compares unequal to itself, so it is asserted separately rather than left out.
+    nan_path = tmp_path / "nan.csv"
+    writer_for_format("csv")(str(nan_path), [{"a": float("nan")}])
+    assert math.isnan(
+        float(
+            next(csv.DictReader(nan_path.read_text(encoding="utf-8").splitlines()))["a"]
+        )
+    )
+
+
+def test_write_csv_spells_a_nested_value_before_polars_types_the_column(tmp_path):
+    """Polars types a column across the whole load, so spelling a nested value read back
+    out of a frame would not spell the value dlt produced.
+
+    Two rows carrying different keys come back with each other's keys as null; a list of
+    one integer past f64's exact range, beside a list of one float, comes back rounded.
+    dlt keeps a nested column as a single JSON column rather than splitting it into
+    variants, so both are reachable on the default load path.
+    """
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(
+        str(path),
+        [
+            {"meta": {"a": 1}, "tags": [9007199254740993]},
+            {"meta": {"b": 2}, "tags": [0.5]},
+        ],
+    )
+
+    rows = list(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+    assert [json.loads(row["meta"]) for row in rows] == [{"a": 1}, {"b": 2}]
+    assert [json.loads(row["tags"]) for row in rows] == [[9007199254740993], [0.5]]
+
+
+def test_write_csv_spells_a_list_of_several_types(tmp_path):
+    """The third way a typed column changes a nested value: Polars cannot build a series
+    from a list holding a string, an integer and a boolean at all, so a row dlt happily
+    produces would abort the export rather than lose precision quietly."""
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [{"tags": ["p", 1, True]}])
+
+    row = next(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+    tags = json.loads(row["tags"])
+    assert tags == ["p", 1, True]
+    # `True == 1` in Python, so the values alone do not say the boolean stayed one.
+    assert [type(tag) for tag in tags] == [str, int, bool]
+
+
+def test_write_csv_keeps_a_record_whose_only_column_is_null(tmp_path):
+    """A record with every field null is a blank line in a one-column file, and a blank
+    line is not a record to most readers, so the row is lost on the way back in. The csv
+    module wrote a quoted empty field here; Polars leaves a null bare, so the file is
+    written quoted. dlt omits a null key rather than writing it, which is what makes a
+    one-column load produce an empty record in the first place.
+
+    Quoted rather than filled: filling the null would mean casting the column to text,
+    and a date or a float is spelled differently by a cast than by the CSV writer, so
+    the one file that happened to carry a null would read differently from every other.
+    """
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [{"name": "a"}, {}, {"name": "b"}])
+
+    assert path.read_bytes() == b'"name"\r\n"a"\r\n""\r\n"b"\r\n'
+    assert len(list(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))) == 3
+
+
+def test_write_csv_of_rows_that_carry_no_columns_at_all(tmp_path):
+    """Every row null across a one-column load leaves rows with no keys, and Polars
+    refuses a frame with height and no width. The file says zero rows, which is what the
+    replaced writer's blank lines also read back as."""
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [{}, {}])
+
+    assert path.read_bytes() == b"\r\n"
+
+
+def test_write_csv_writes_a_decimal_wider_than_polars_holds(tmp_path):
+    """Polars stops at 128-bit decimals where PyArrow reached for a 256-bit one, so a
+    `DECIMAL(50,2)` column that the replaced writer exported would abort this one. A
+    decimal is spelled by dlt's serializer for that reason, which keeps every digit and
+    leaves an ordinary decimal reading exactly as it did."""
+    path = tmp_path / "out.csv"
+    wide = decimal.Decimal("1234567890123456789012345678901234567890.12")
+    writer_for_format("csv")(
+        str(path), [{"wide": wide, "ordinary": decimal.Decimal("1.50")}]
+    )
+
+    row = next(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+    assert decimal.Decimal(row["wide"]) == wide
+    assert row["ordinary"] == "1.50"
+
+
+def test_write_csv_keeps_native_spelling_in_a_one_column_file_with_a_null(tmp_path):
+    """The quoting above must not reach the values themselves: a datetime is spelled by
+    the CSV writer either way, not by a cast to text, so a file that carries a null
+    reads the same as one that does not."""
+    when = datetime.datetime(2020, 1, 1, 12, 0)
+    with_null = tmp_path / "with_null.csv"
+    without_null = tmp_path / "without_null.csv"
+    writer_for_format("csv")(str(with_null), [{"at": when}, {}])
+    writer_for_format("csv")(str(without_null), [{"at": when}])
+
+    written = with_null.read_text(encoding="utf-8")
+    assert "2020-01-01T12:00:00.000000" in written
+    assert (
+        next(csv.DictReader(written.splitlines()))["at"]
+        == next(csv.DictReader(without_null.read_text(encoding="utf-8").splitlines()))[
+            "at"
+        ]
+    )
+
+
+def test_writers_refuse_to_round_an_integer_a_double_cannot_hold(tmp_path):
+    """PyArrow refused a column holding both a large integer and a float, rather than
+    widening it and writing the integer rounded. Polars widens silently, so the frame
+    is checked before it is written: dlt splits a scalar column of two types into
+    variants but keeps a nested one whole, so a list is how this arrives in practice.
+    """
+    rows = [{"tags": [9007199254740993]}, {"tags": [0.5]}]
+
+    with pytest.raises(ValueError, match="'tags'"):
+        writer_for_format("parquet")(str(tmp_path / "out.parquet"), rows)
+
+
+def test_the_rounding_check_leaves_a_large_integer_alone(tmp_path):
+    """The check is about the widening, not about the size: a large integer in a column
+    with no float in it is exact as an int64 and is written as itself."""
+    import pyarrow.parquet as pq
+
+    path = tmp_path / "out.parquet"
+    writer_for_format("parquet")(str(path), [{"id": 9007199254740993}, {"id": 1}])
+
+    assert pq.read_table(path).to_pylist() == [{"id": 9007199254740993}, {"id": 1}]
+
+
+def test_csv_writes_the_same_load_exactly_because_it_spells_first(tmp_path):
+    """CSV spells a nested value before Polars types the column, so the load the
+    Parquet writer refuses is written exactly rather than refused."""
+    path = tmp_path / "out.csv"
+    writer_for_format("csv")(str(path), [{"tags": [9007199254740993]}, {"tags": [0.5]}])
+
+    rows = list(csv.DictReader(path.read_text(encoding="utf-8").splitlines()))
+    assert [json.loads(row["tags"]) for row in rows] == [[9007199254740993], [0.5]]
