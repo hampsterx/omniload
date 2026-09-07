@@ -6,7 +6,9 @@
   files were typed by running `file(1)` and matching its English output, which is absent on
   Windows, varies by version, and cannot tell gzipped CSV from gzipped JSONL because dlt
   compresses both. So `--loader-file-format csv` failed with a JSON decode error, and an
-  uncompressed JSONL intermediate was refused as an unknown format. Both work now: the
+  uncompressed JSONL intermediate loaded or was refused as an unknown format depending on
+  how many rows it held, since `file` names a one-line file differently from a many-line
+  one. Both work now: the
   format comes from the name dlt gave the file, CSV is read with the delimiter, encoding and
   line terminator dlt wrote it with, and the staging directory names its own files rather
   than inheriting a `layout` or `extra_placeholders` meant for a user's real filesystem
