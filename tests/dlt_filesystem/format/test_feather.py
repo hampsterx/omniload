@@ -19,7 +19,7 @@ import pyarrow as pa
 import pytest
 from dlt.extract.exceptions import ResourceExtractionError
 
-from dlt_filesystem.source.format.readers import read_feather
+from dlt_filesystem.source.format.readers import read_feather, read_parquet
 from dlt_filesystem.source.fsspec.local import LocalFilesystemSource
 from dlt_filesystem.target.local import LocalFilesystemDestination
 from dlt_filesystem.target.registry import writer_for_format
@@ -238,12 +238,15 @@ def test_a_batch_smaller_than_chunksize_yields_as_it_stands(tmp_path):
 # --- the dtype matrix ---
 
 
-def test_every_arrow_type_survives_the_round_trip(tmp_path):
-    """The matrix behind the docs' claim that Feather narrows nothing.
+def test_the_container_carries_every_arrow_type(tmp_path):
+    """The matrix behind the docs' type table.
 
-    Written with PyArrow directly rather than through `write_feather`, because several
-    of these types cannot be produced from a Python dict at all (a null column, a fixed
-    scale decimal), and the claim is about the container rather than about the writer.
+    Two claims, deliberately separated. The `equals` assertion is about the *container*:
+    PyArrow in, PyArrow out, no `src/` in between, because several of these types cannot
+    be produced from a Python dict at all (a null column, a fixed-scale decimal). The
+    row assertions after it are about the *reader*, which is what a load actually gets.
+    `test_nanosecond_columns_narrow_on_the_row_path` holds the one place those two
+    answers differ.
     """
     table = pa.table(
         {
@@ -279,6 +282,57 @@ def test_every_arrow_type_survives_the_round_trip(tmp_path):
     assert row["nul"] is None
     assert row["lst"] == [1, 2]
     assert row["struct"] == {"n": 1}
+
+
+def test_nanosecond_columns_narrow_on_the_row_path(tmp_path):
+    """A row carries Python values, so nanoseconds do not survive a full round trip.
+
+    Measured rather than assumed, because the docs claim the type table above and this is
+    its one exception. The reader keeps nanosecond timestamps and durations (pandas types
+    carry them) and loses them on a `time64[ns]`, which becomes a `datetime.time`; writing
+    any of the three back emits a microsecond column, because the writer infers its schema
+    from those Python values.
+
+    Parquet is asserted alongside so the claim that this belongs to the row pipeline rather
+    than to Feather is mechanical rather than a comment: a reader that diverged would fail
+    here.
+    """
+    import pyarrow.parquet as pq
+
+    table = pa.table(
+        {
+            "t": pa.array([123456789], type=pa.time64("ns")),
+            "ts": pa.array([1_600_000_000_123_456_789], type=pa.timestamp("ns")),
+            "dur": pa.array([1234567890], type=pa.duration("ns")),
+        }
+    )
+    path = tmp_path / "ns.feather"
+    with pa.ipc.new_file(str(path), table.schema) as writer:
+        writer.write_table(table)
+
+    # The container kept every nanosecond; the schema on disk still says so.
+    assert _read_table(path).equals(table)
+
+    row = next(iter(read_feather(iter([FileItemStub(path)]))))[0]  # ty: ignore[invalid-argument-type]
+    assert row["t"] == datetime.time(0, 0, 0, 123456), (
+        "datetime.time has no nanoseconds"
+    )
+    assert row["ts"].nanosecond == 789, "a pandas Timestamp carries them"
+    assert row["dur"].nanoseconds == 890, "and so does a pandas Timedelta"
+
+    parquet_path = tmp_path / "ns.parquet"
+    pq.write_table(table, str(parquet_path))
+    assert next(iter(read_parquet(iter([FileItemStub(parquet_path)]))))[0] == row  # ty: ignore[invalid-argument-type]
+
+    # Writing those rows back is where the surviving nanoseconds go: the writer infers
+    # its schema from Python values, so every one of the three lands at microseconds.
+    out = tmp_path / "out.feather"
+    writer_for_format("feather")(str(out), [row])
+    assert [field.type for field in _read_table(out).schema] == [
+        pa.time64("us"),
+        pa.timestamp("us"),
+        pa.duration("us"),
+    ]
 
 
 def test_read_adversarial_values_are_normalized(tmp_path):

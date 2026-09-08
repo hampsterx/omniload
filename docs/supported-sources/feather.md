@@ -88,10 +88,20 @@ The reader uses PyArrow's `ipc.open_file()` and reads one record batch at a
 time, the Arrow IPC analogue of ORC's stripes. Large batches are sliced into
 chunks according to the `chunksize` format hint.
 
-Arrow types round-trip without narrowing: strings, integers, floating-point
-values, booleans, dates, timestamps (with or without a time zone), times,
-binary values, decimals, lists, structs and all-null columns all survive a
-write followed by a read.
+Strings, integers, floating-point values, booleans, dates, timestamps (with or
+without a time zone), times, binary values, decimals, lists, structs and
+all-null columns all survive a write followed by a read.
+
+:::{note}
+Rows are Python values, so **nanosecond** time, timestamp and duration columns
+narrow to microseconds on the way through. The reader itself keeps nanosecond
+timestamps and durations, which arrive as `pandas.Timestamp` and
+`pandas.Timedelta`; a `time64[ns]` narrows at the read, because `datetime.time`
+has no nanoseconds, and writing any of the three back emits a microsecond
+column. This is a property of the row pipeline rather than of Feather: the ORC
+and Parquet readers narrow the same values the same way, and the Feather file
+itself stores whatever precision it was written with.
+:::
 
 [Apache Arrow]: https://arrow.apache.org/
 [Feather]: https://arrow.apache.org/docs/python/feather.html

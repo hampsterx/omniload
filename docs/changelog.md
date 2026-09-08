@@ -28,9 +28,11 @@
   whole. `#columns=` and `#chunksize=` work as they do for ORC. Feather V1 is a different
   container and is refused by name rather than reported as a damaged file.
 - **Filesystem: `file://` writes Feather V2.** `file://export/users.feather` (or `.arrow`,
-  or `.ipc`, or a `#feather` hint) writes one Arrow IPC file. Every Arrow type survives the
-  round trip, timezone-aware timestamps, times, decimals and all-null columns included, so
-  an export under `--loader-file-format parquet` keeps the types the source had.
+  or `.ipc`, or a `#feather` hint) writes one Arrow IPC file. Timezone-aware timestamps,
+  times, decimals, nested lists and structs and all-null columns all survive the round trip,
+  so an export under `--loader-file-format parquet` keeps the types the source had.
+  Nanosecond time, timestamp and duration columns narrow to microseconds, as they already do
+  through the ORC and Parquet readers, because a row carries Python values.
 - **Filesystem: the supported-format message names formats, not extensions.** A reader
   registered under several extensions listed all of them, so `.arrow` and `.ipc` would have
   read as separate formats alongside Feather. Only the canonical name is advertised now,
