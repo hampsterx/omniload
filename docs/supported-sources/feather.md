@@ -100,8 +100,10 @@ was written with.
 
 The writer has one limit of its own, shared with `write_orc` because both build
 their table from Python values: an unsigned integer above the signed 64-bit
-range raises `OverflowError` rather than being written. Such a column reads
-back fine, and exports to Parquet, JSON, JSONL, CSV and YAML.
+range raises `OverflowError` rather than being written. Such a column reads back
+fine, and exports digit for digit to JSON, JSONL, CSV and YAML. Parquet is not
+an alternative for it: that writer accepts the value and produces a file its own
+reader then refuses with `Integers with more than 64 bits not implemented`.
 
 (feather-load-types)=
 

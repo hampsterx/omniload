@@ -16,6 +16,7 @@ import warnings
 from pathlib import Path
 
 import pyarrow as pa
+import pyarrow.parquet  # noqa: F401  # `pa.parquet` is not bound by importing `pyarrow`
 import pytest
 from dlt.extract.exceptions import ResourceExtractionError
 
@@ -514,6 +515,27 @@ def test_write_refuses_an_unsigned_integer_wider_than_a_signed_64(tmp_path):
     out = tmp_path / "out.feather"
     with pytest.raises(OverflowError):
         writer_for_format("feather")(str(out), [row])
+
+    # The alternatives the page names, asserted rather than assumed: all four keep the
+    # value digit for digit. Parquet is named as a non-alternative for the same reason,
+    # and that is the case worth pinning: it writes without complaint and its own reader
+    # refuses the result, which is a worse failure than this one and easy to walk into.
+    import json
+
+    for file_format, decode in (
+        ("json", lambda p: json.loads(p.read_text())[0]["u"]),
+        ("jsonl", lambda p: json.loads(p.read_text().splitlines()[0])["u"]),
+        ("csv", lambda p: p.read_text().splitlines()[1]),
+        ("yaml", lambda p: __import__("yaml").safe_load(p.read_text())[0]["u"]),
+    ):
+        alt = tmp_path / f"alt.{file_format}"
+        writer_for_format(file_format)(str(alt), [row])
+        assert str(decode(alt)) == str(2**64 - 1), file_format
+
+    parquet_out = tmp_path / "alt.parquet"
+    writer_for_format("parquet")(str(parquet_out), [row])
+    with pytest.raises(pa.lib.ArrowNotImplementedError, match="more than 64 bits"):
+        pa.parquet.read_table(str(parquet_out))
 
 
 def test_written_columns_are_not_arrow_view_types(tmp_path):
