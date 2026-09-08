@@ -22,6 +22,10 @@
   working: a Parquet export of a decimal column wider than 38 digits of precision, which
   PyArrow held in a 256-bit decimal and Polars cannot hold at all. The same column still
   exports to CSV, JSON, JSONL and YAML, digit for digit.
+- **Filesystem: the supported-format message names formats, not extensions.** A reader
+  registered under several extensions listed all of them, so `.arrow` and `.ipc` would have
+  read as separate formats alongside Feather. Only the canonical name is advertised now,
+  matching what the write side already did for `.yml`.
 
 ## 2026/09/07 v0.15.0
 
