@@ -447,6 +447,21 @@ def test_written_file_is_v2_not_v1(tmp_path):
     assert path.read_bytes()[:6] == b"ARROW1"
 
 
+def test_written_columns_are_not_arrow_view_types(tmp_path):
+    """The reason this writer stayed on PyArrow when csv and parquet moved to Polars.
+
+    For Feather the Arrow schema is the file, so `DataFrame.write_ipc` at its default
+    compat level puts `string_view` and `binary_view` into it, and those are an Arrow 15
+    feature rather than something every reader opens. Parquet has its own type system and
+    was insulated from that. Pinned here so a later move to Polars has to answer it.
+    """
+    path = tmp_path / "out.feather"
+    writer_for_format("feather")(str(path), [{"s": "a", "b": b"hi"}])
+
+    types = {field.name: field.type for field in _read_table(path).schema}
+    assert types == {"s": pa.string(), "b": pa.binary()}
+
+
 def test_written_file_is_readable_by_polars(tmp_path):
     """Interop in the other direction: what we write is Arrow IPC, not our own dialect."""
     import polars as pl

@@ -219,6 +219,14 @@ def write_feather(path: str, rows: list[dict]) -> None:
     ``pa.ipc.new_file`` rather than ``pyarrow.feather.write_feather``: the latter is
     deprecated as of pyarrow 24 and its own warning names this API. It writes V2, which
     is what ``read_feather`` reads and what every current Arrow implementation opens.
+
+    PyArrow rather than Polars, which is where ``write_csv`` and ``write_parquet`` went,
+    for the reason ``write_orc`` also stayed: for these two the Arrow schema *is* the
+    file. ``DataFrame.write_ipc`` defaults to Polars' own newest representation and
+    writes ``string_view`` and ``binary_view`` columns, which are an Arrow 15 feature
+    rather than something every reader opens, and keeping them out means pinning
+    ``compat_level`` on a call where forgetting it changes the file rather than raising.
+    Parquet has its own type system and was insulated from that; this format is not.
     """
     import pyarrow as pa
 
