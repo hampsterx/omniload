@@ -339,8 +339,10 @@ def test_parquet_staging_delivers_typed_columns_and_flattens_nesting(tmp_path):
     # The whole row and the whole schema, not a type predicate each: a predicate passes
     # on a null value, a wrong instant or a zero decimal, which is most of what could go
     # wrong here. dlt applies its own schema rather than the source's, so the naive
-    # column arrives as UTC and the `decimal128(38, 2)` at dlt's default precision, and
-    # both of those are the point rather than incidental.
+    # column arrives as UTC (asserted rather than inherited: this passes on a UTC+12
+    # box, so it is dlt localizing rather than the platform) and the `decimal128(38, 2)`
+    # is quantized to dlt's default scale of 9, from which PyArrow infers
+    # `decimal128(10, 9)`. Both of those are the point rather than incidental.
     assert {field.name: str(field.type) for field in table.schema} == {
         "i": "int64",
         "s": "string",

@@ -129,9 +129,11 @@ null key per row, so a wholly null column has no keys anywhere and the writer
 never learns it existed.
 
 Under Parquet staging dlt applies its own schema rather than the source's, so a
-naive timestamp arrives as UTC and a `decimal128(38, 2)` as dlt's default
-decimal precision. Use the default staging when you want the text form, and
-Parquet staging when you want typed columns.
+naive timestamp arrives as UTC, and a decimal is quantized to dlt's default
+scale of 9 before PyArrow infers a type from it: a source
+`decimal128(38, 2)` carrying `3.14` lands as `decimal128(10, 9)`. Use the
+default staging when you want the text form, and Parquet staging when you want
+typed columns.
 
 [Apache Arrow]: https://arrow.apache.org/
 [Feather]: https://arrow.apache.org/docs/python/feather.html
