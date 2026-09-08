@@ -163,9 +163,11 @@ optional-dependencies.filesystem = [
   "ocifs",
   "ossfs",
   "paramiko",
+  "pyarrow>=18,<26",
   "s3fs",
   "smbprotocol; platform_system=='Linux'",
   "smbprotocol[kerberos]; platform_system!='Linux'",
+  "verlib2",
   "webdav4[fsspec]",
 ]
 optional-dependencies.full = [ "omniload[ibm-db,iterable,odbc,oracle,reshape]" ]
@@ -226,7 +228,6 @@ optional-dependencies.test = [
   "pytest-xdist[psutil]<4",
   "testcontainers[azurite,mysql,postgres]>=4.9.1,<4.16",
   "types-requests<3",
-  "verlib2",
   "xlsxwriter<4",
 ]
 urls.Changelog = "https://omniload.readthedocs.io/changelog.html"
