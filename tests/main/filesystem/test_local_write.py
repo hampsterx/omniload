@@ -323,9 +323,13 @@ def test_default_staging_delivers_typed_columns_as_text(tmp_path):
     assert types["st"].startswith("struct<")
 
     row = table.to_pylist()[0]
+    assert row["i"] == 1 and row["s"] == "a"
     assert row["date"] == "2020-01-01"
+    assert row["naive"] == "2020-01-02T03:04:05+00:00"
+    assert row["time"] == "09:30:00"
     assert row["dec"] == "3.14"
     assert row["blob"] == "aGk=", "bytes reach the writer base64-encoded"
+    assert row["lst"] == [1, 2] and row["st"] == {"n": 1}
 
 
 def test_parquet_staging_delivers_typed_columns_and_flattens_nesting(tmp_path):
@@ -336,12 +340,16 @@ def test_parquet_staging_delivers_typed_columns_and_flattens_nesting(tmp_path):
 
     types = {field.name: field.type for field in table.schema}
     assert types["date"] == pa.date32()
-    assert pa.types.is_timestamp(types["naive"])
     assert types["time"] == pa.time64("us")
     assert types["blob"] == pa.binary()
-    assert pa.types.is_decimal(types["dec"])
     assert types["lst"] == pa.string() and types["st"] == pa.string()
     assert table.to_pylist()[0]["lst"] == "[1,2]"
+
+    # dlt applies its own schema rather than the source's, which the page states and
+    # which a category assertion would not catch: the source column is naive and
+    # `decimal128(38, 2)`.
+    assert pa.types.is_timestamp(types["naive"]) and types["naive"].tz is not None
+    assert (types["dec"].precision, types["dec"].scale) != (38, 2)
 
 
 @pytest.mark.parametrize("loader_file_format", [None, "parquet"])
@@ -392,6 +400,38 @@ def test_a_duration_column_fails_the_load_before_any_writer(
     assert result.exit_code != 0
     assert "not JSON serializable" in str(result.output) + str(result.exception)
     assert not out_path.exists()
+
+
+def test_orc_cannot_take_a_time_column_under_parquet_staging(tmp_path):
+    """The one place the load table above stops describing an ORC destination.
+
+    Parquet staging keeps a time column typed, and PyArrow will not write `time64` to
+    ORC at all. The default staging has already turned it into text by the time the
+    writer runs, so that direction loads. Both are asserted, because the exception is
+    only meaningful against the case that works.
+    """
+    source = _typed_feather_source(tmp_path / "in.feather")
+
+    ok = invoke_ingest_command(
+        f"file://{source}", "rows", f"file://{tmp_path / 'default.orc'}", "public.rows"
+    )
+    assert ok.exit_code == 0, ok.output
+
+    failed = invoke_ingest_command(
+        f"file://{source}",
+        "rows",
+        f"file://{tmp_path / 'staged.orc'}",
+        "public.rows",
+        loader_file_format="parquet",
+        print_output=False,
+    )
+    assert failed.exit_code != 0
+    assert "time64" in str(failed.output) + str(failed.exception)
+    # `write_orc` opens the path before PyArrow validates the schema, so the rejection
+    # leaves an empty file behind rather than nothing. Asserted as it is rather than as
+    # it should be: the writer predates this suite, and a 0-byte ORC file is refused on
+    # read (`File size too small`), so the failure does not read as a successful export.
+    assert (tmp_path / "staged.orc").stat().st_size == 0
 
 
 @pytest.mark.parametrize("out_format", ["feather", "parquet"])

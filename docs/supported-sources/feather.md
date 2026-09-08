@@ -104,8 +104,10 @@ was written with.
 
 An ingest is not the reader and writer back to back: dlt stages the rows
 between them, and the staging format decides what the writer receives. This is
-`file://`-wide rather than Feather's, and the same table describes an ORC or
-Parquet destination.
+`file://`-wide rather than Feather's: the same table describes a Parquet
+destination, and an ORC one except that ORC cannot store a time column at all,
+so a source carrying one loads to `.orc` under the default staging (where the
+column is text by then) and fails under Parquet staging.
 
 | Source column | Default staging (gzip JSONL) | `--loader-file-format parquet` |
 | :--- | :--- | :--- |
