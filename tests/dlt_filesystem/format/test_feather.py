@@ -475,6 +475,25 @@ def test_write_round_trips_the_type_matrix_from_python_rows(tmp_path):
 
     assert _read_via_source(path) == [row]
 
+    # The values alone are not the claim. Python calls `True == 1` and `1 == 1.0`, so a
+    # writer that inferred a boolean as an integer, or an integer as a double, satisfies
+    # the row comparison above; only the schema separates them.
+    assert {field.name: str(field.type) for field in _read_table(path).schema} == {
+        "i": "int64",
+        "s": "string",
+        "f": "double",
+        "b": "bool",
+        "date": "date32[day]",
+        "naive": "timestamp[us]",
+        "aware": "timestamp[us, tz=UTC]",
+        "time": "time64[us]",
+        "blob": "binary",
+        "dec": "decimal128(3, 2)",
+        "lst": "list<item: int64>",
+        "st": "struct<n: int64>",
+        "nul": "null",
+    }
+
 
 def test_write_refuses_an_unsigned_integer_wider_than_a_signed_64(tmp_path):
     """A limit of the writer rather than of the format, shared with `write_orc`.
