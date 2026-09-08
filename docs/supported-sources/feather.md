@@ -98,6 +98,11 @@ duration back emits a microsecond column. The Parquet reader answers the same
 way, which the test suite pins; the file itself stores whatever precision it
 was written with.
 
+The writer has one limit of its own, shared with `write_orc` because both build
+their table from Python values: an unsigned integer above the signed 64-bit
+range raises `OverflowError` rather than being written. Such a column reads
+back fine, and exports to Parquet, JSON, JSONL, CSV and YAML.
+
 (feather-load-types)=
 
 ### What a load delivers

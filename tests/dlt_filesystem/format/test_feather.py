@@ -447,6 +447,56 @@ def test_written_file_is_v2_not_v1(tmp_path):
     assert path.read_bytes()[:6] == b"ARROW1"
 
 
+def test_write_round_trips_the_type_matrix_from_python_rows(tmp_path):
+    """The writer's own half of the type table, from dict rows rather than a `pa.table`.
+
+    `test_the_container_carries_every_arrow_type` builds its columns with `pa.array`, so
+    it pins the container and the reader and never exercises the dict-to-`pa.table`
+    inference the writer actually relies on. This is that path: values a load could
+    plausibly hand a writer, out through `write_feather` and back through the source.
+    """
+    row = {
+        "i": 1,
+        "s": "Zoë",
+        "f": 1.5,
+        "b": True,
+        "date": datetime.date(2020, 1, 1),
+        "naive": datetime.datetime(2020, 1, 2, 3, 4, 5),
+        "aware": datetime.datetime(2020, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc),
+        "time": datetime.time(9, 30),
+        "blob": b"hi",
+        "dec": decimal.Decimal("3.14"),
+        "lst": [1, 2],
+        "st": {"n": 1},
+        "nul": None,
+    }
+    path = tmp_path / "matrix.feather"
+    writer_for_format("feather")(str(path), [row])
+
+    assert _read_via_source(path) == [row]
+
+
+def test_write_refuses_an_unsigned_integer_wider_than_a_signed_64(tmp_path):
+    """A limit of the writer rather than of the format, shared with `write_orc`.
+
+    Both build their table from Python values, and PyArrow's inference from a Python int
+    tops out at a signed 64-bit. The value reads back fine, so this is reachable by
+    loading such a column and exporting it, and it raises rather than writing a wrong
+    number.
+    """
+    source = tmp_path / "u64.feather"
+    table = pa.table({"u": pa.array([2**64 - 1], type=pa.uint64())})
+    with pa.ipc.new_file(str(source), table.schema) as writer:
+        writer.write_table(table)
+
+    row = _read_via_source(source)[0]
+    assert row["u"] == 2**64 - 1, "the read side carries it"
+
+    out = tmp_path / "out.feather"
+    with pytest.raises(OverflowError):
+        writer_for_format("feather")(str(out), [row])
+
+
 def test_written_columns_are_not_arrow_view_types(tmp_path):
     """The reason this writer stayed on PyArrow when csv and parquet moved to Polars.
 

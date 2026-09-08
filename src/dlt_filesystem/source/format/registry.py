@@ -92,7 +92,9 @@ def _advertised_formats(
     return tuple(registration.format_keys[0] for registration in registrations)
 
 
-BASE_FILE_FORMATS = _build_format_map(BASE_READER_REGISTRATIONS)
+# `BASE_FILE_FORMATS` stood here and was read only by `advertised_file_formats()`, which
+# now reads `ADVERTISED_FILE_FORMATS` instead. It is dropped rather than left as a name
+# with no reader; the per-tier maps it was one of are still built where they are used.
 ITERABLE_FILE_FORMATS = _build_format_map(ITERABLE_READER_REGISTRATIONS)
 FORMAT_TO_READER = _build_format_map(
     BASE_READER_REGISTRATIONS + ITERABLE_READER_REGISTRATIONS
