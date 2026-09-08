@@ -334,22 +334,35 @@ def test_default_staging_delivers_typed_columns_as_text(tmp_path):
 
 def test_parquet_staging_delivers_typed_columns_and_flattens_nesting(tmp_path):
     """The mirror image: the typed columns survive and the nested ones do not."""
-    import pyarrow as pa
-
     table = _load_feather_to_feather(tmp_path, loader_file_format="parquet")
 
-    types = {field.name: field.type for field in table.schema}
-    assert types["date"] == pa.date32()
-    assert types["time"] == pa.time64("us")
-    assert types["blob"] == pa.binary()
-    assert types["lst"] == pa.string() and types["st"] == pa.string()
-    assert table.to_pylist()[0]["lst"] == "[1,2]"
-
-    # dlt applies its own schema rather than the source's, which the page states and
-    # which a category assertion would not catch: the source column is naive and
-    # `decimal128(38, 2)`.
-    assert pa.types.is_timestamp(types["naive"]) and types["naive"].tz is not None
-    assert (types["dec"].precision, types["dec"].scale) != (38, 2)
+    # The whole row and the whole schema, not a type predicate each: a predicate passes
+    # on a null value, a wrong instant or a zero decimal, which is most of what could go
+    # wrong here. dlt applies its own schema rather than the source's, so the naive
+    # column arrives as UTC and the `decimal128(38, 2)` at dlt's default precision, and
+    # both of those are the point rather than incidental.
+    assert {field.name: str(field.type) for field in table.schema} == {
+        "i": "int64",
+        "s": "string",
+        "date": "date32[day]",
+        "naive": "timestamp[us, tz=UTC]",
+        "time": "time64[us]",
+        "blob": "binary",
+        "dec": "decimal128(10, 9)",
+        "lst": "string",
+        "st": "string",
+    }
+    assert table.to_pylist()[0] == {
+        "i": 1,
+        "s": "a",
+        "date": datetime.date(2020, 1, 1),
+        "naive": datetime.datetime(2020, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc),
+        "time": datetime.time(9, 30),
+        "blob": b"hi",
+        "dec": decimal.Decimal("3.140000000"),
+        "lst": "[1,2]",
+        "st": '{"n":1}',
+    }
 
 
 @pytest.mark.parametrize("loader_file_format", [None, "parquet"])
