@@ -129,6 +129,18 @@ def test_read_with_invalid_option(tmp_path):
     )
 
 
+@pytest.mark.parametrize("alias", ALIASES)
+def test_a_gzipped_file_reads_under_every_extension(tmp_path, alias):
+    """`.gz` stripping is format-agnostic, but the page claims it for these three names."""
+    import gzip
+
+    raw = write_feather(tmp_path / f"data.{alias}", [{"id": 1}, {"id": 2}])
+    path = tmp_path / f"gz.{alias}.gz"
+    path.write_bytes(gzip.compress(Path(raw).read_bytes()))
+
+    assert _read_via_source(path) == [{"id": 1}, {"id": 2}]
+
+
 def test_read_multiple_files_flushes_each_remainder(tmp_path):
     write_feather(tmp_path / "a.feather", [{"id": 1}, {"id": 2}, {"id": 3}])
     write_feather(tmp_path / "b.feather", [{"id": 4}, {"id": 5}])

@@ -30,10 +30,11 @@
 - **Filesystem: `file://` writes Feather V2.** `file://export/users.feather` (or `.arrow`,
   or `.ipc`, or a `#feather` hint) writes one Arrow IPC file. Timezone-aware timestamps,
   times, decimals, nested lists and structs and all-null columns all reach the file as
-  themselves. Two things narrow before the writer sees them, neither of them Feather's:
-  a nanosecond time, timestamp or duration column becomes microseconds, because a row
-  carries Python values, and under `--loader-file-format parquet` a nested list or struct
-  arrives already serialized to a JSON string by dlt's staging.
+  themselves when the writer is handed them. What a *load* delivers depends on dlt's
+  staging rather than on the writer, and the format page now carries that table: the
+  default staging writes temporal, decimal and binary columns as text, Parquet staging
+  writes nested values as JSON text, a wholly null column is dropped either way, and a
+  duration column fails at extract. That is `file://`-wide, not Feather's.
 - **Filesystem: the supported-format message names formats, not extensions.** A reader
   registered under several extensions listed all of them, so `.arrow` and `.ipc` would have
   read as separate formats alongside Feather. Only the canonical name is advertised now,

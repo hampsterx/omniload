@@ -88,28 +88,48 @@ The reader uses PyArrow's `ipc.open_file()` and reads one record batch at a
 time, the Arrow IPC analogue of ORC's stripes. Large batches are sliced into
 chunks according to the `chunksize` format hint.
 
-Strings, integers, floating-point values, booleans, dates, timestamps (with or
-without a time zone), times, binary values, decimals, lists, structs and
-all-null columns all survive a write followed by a read.
+Read directly, and written directly, strings, integers, floating-point values,
+booleans, dates, timestamps (with or without a time zone), times, binary
+values, decimals, lists, structs and all-null columns all come back as
+themselves. Nanosecond time, timestamp and duration columns are the exception:
+a row carries Python values, so `time64[ns]` narrows at the read
+(`datetime.time` has no nanoseconds) and writing a nanosecond timestamp or
+duration back emits a microsecond column. The Parquet reader answers the same
+way, which the test suite pins; the file itself stores whatever precision it
+was written with.
 
-:::{note}
-Two things narrow on the way through a load, and neither belongs to Feather:
-the file itself stores whatever it was written with.
+(feather-load-types)=
 
-**Nanoseconds.** Rows are Python values, so nanosecond time, timestamp and
-duration columns come out at microsecond resolution. The reader keeps
-nanoseconds on a timestamp and a duration, which arrive as `pandas.Timestamp`
-and `pandas.Timedelta`, and loses them on a `time64[ns]`, because
-`datetime.time` has none; writing any of the three back emits a microsecond
-column. The Parquet reader answers identically on all three. ORC does too on
-timestamps, and cannot store the other two types at all.
+### What a load delivers
 
-**Nested values under `--loader-file-format parquet`.** dlt's Parquet staging
-serializes a list or a struct to a JSON string, so the writer receives text and
-the output column is a string. The default staging path does not, and nested
-values reach the file as Arrow lists and structs. This applies to every
-`file://` output format, not just Feather.
-:::
+An ingest is not the reader and writer back to back: dlt stages the rows
+between them, and the staging format decides what the writer receives. This is
+`file://`-wide rather than Feather's, and the same table describes an ORC or
+Parquet destination.
+
+| Source column | Default staging (gzip JSONL) | `--loader-file-format parquet` |
+| :--- | :--- | :--- |
+| integer, float, boolean, string | itself | itself |
+| date, timestamp, time, binary, decimal | ISO or base64 **string** | itself, retyped by dlt's schema |
+| list, struct | itself | JSON **string** |
+| all-null column | dropped | dropped |
+| duration | **load fails** | **load fails** |
+
+Two of those rows are worth spelling out.
+
+A **duration** column cannot be loaded at all. dlt's extract step serializes
+rows as JSON and refuses a `Timedelta`, so the run fails with
+`Type is not JSON serializable: Timedelta` before any writer sees it. Cast such
+a column in the source query if you need it.
+
+A column that is **null in every row** does not reach the output. dlt omits a
+null key per row, so a wholly null column has no keys anywhere and the writer
+never learns it existed.
+
+Under Parquet staging dlt applies its own schema rather than the source's, so a
+naive timestamp arrives as UTC and a `decimal128(38, 2)` as dlt's default
+decimal precision. Use the default staging when you want the text form, and
+Parquet staging when you want typed columns.
 
 [Apache Arrow]: https://arrow.apache.org/
 [Feather]: https://arrow.apache.org/docs/python/feather.html

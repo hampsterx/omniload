@@ -1,4 +1,6 @@
 import csv
+import datetime
+import decimal
 import io
 import json
 
@@ -263,6 +265,133 @@ def test_yaml_survives_a_forced_parquet_intermediate(tmp_path):
     # The scale a float would drop, and the same string `write_json` writes for it.
     assert rows[0]["price"] == "1.50"
     assert rows[0]["blob"] == b"hi"
+
+
+def _typed_feather_source(path):
+    """A Feather file carrying one row of every type the format page tabulates."""
+    import pyarrow as pa
+
+    table = pa.table(
+        {
+            "i": pa.array([1]),
+            "s": pa.array(["a"]),
+            "date": pa.array([datetime.date(2020, 1, 1)]),
+            "naive": pa.array([datetime.datetime(2020, 1, 2, 3, 4, 5)]),
+            "time": pa.array([datetime.time(9, 30)]),
+            "blob": pa.array([b"hi"]),
+            "dec": pa.array([decimal.Decimal("3.14")], type=pa.decimal128(38, 2)),
+            "lst": pa.array([[1, 2]]),
+            "st": pa.array([{"n": 1}]),
+            "nul": pa.array([None], type=pa.null()),
+        }
+    )
+    with pa.ipc.new_file(str(path), table.schema) as writer:
+        writer.write_table(table)
+    return path
+
+
+def _load_feather_to_feather(tmp_path, loader_file_format=None):
+    source = _typed_feather_source(tmp_path / "in.feather")
+    out_path = tmp_path / f"out-{loader_file_format or 'default'}.feather"
+    kwargs = {"loader_file_format": loader_file_format} if loader_file_format else {}
+    result = invoke_ingest_command(
+        f"file://{source}", "rows", f"file://{out_path}", "public.rows", **kwargs
+    )
+    assert result.exit_code == 0, result.output
+    import pyarrow as pa
+
+    return pa.ipc.open_file(str(out_path)).read_all()
+
+
+def test_default_staging_delivers_typed_columns_as_text(tmp_path):
+    """What a load actually writes, which is not what the writer can hold.
+
+    dlt stages gzip-JSONL by default, so every value reaches a writer already
+    JSON-typed: a date, a timestamp, a time, a decimal and a blob all arrive as strings
+    however capable the destination format is. Nested values survive, because JSON has
+    them. This is the table on the Feather documentation page, and the reason that page
+    separates "read and write" from "what a load delivers".
+    """
+    table = _load_feather_to_feather(tmp_path)
+
+    types = {field.name: str(field.type) for field in table.schema}
+    assert types["i"] == "int64"
+    assert [types[name] for name in ("date", "naive", "time", "blob", "dec")] == [
+        "string"
+    ] * 5
+    assert types["lst"] == "list<item: int64>"
+    assert types["st"].startswith("struct<")
+
+    row = table.to_pylist()[0]
+    assert row["date"] == "2020-01-01"
+    assert row["dec"] == "3.14"
+    assert row["blob"] == "aGk=", "bytes reach the writer base64-encoded"
+
+
+def test_parquet_staging_delivers_typed_columns_and_flattens_nesting(tmp_path):
+    """The mirror image: the typed columns survive and the nested ones do not."""
+    import pyarrow as pa
+
+    table = _load_feather_to_feather(tmp_path, loader_file_format="parquet")
+
+    types = {field.name: field.type for field in table.schema}
+    assert types["date"] == pa.date32()
+    assert pa.types.is_timestamp(types["naive"])
+    assert types["time"] == pa.time64("us")
+    assert types["blob"] == pa.binary()
+    assert pa.types.is_decimal(types["dec"])
+    assert types["lst"] == pa.string() and types["st"] == pa.string()
+    assert table.to_pylist()[0]["lst"] == "[1,2]"
+
+
+@pytest.mark.parametrize("loader_file_format", [None, "parquet"])
+def test_a_wholly_null_column_does_not_reach_the_output(tmp_path, loader_file_format):
+    """dlt omits a null key per row, so a column null in every row has no keys at all.
+
+    Asserted on both staging paths because it happens before the staging choice: the
+    writer is never told the column existed, so no writer can reinstate it.
+    """
+    table = _load_feather_to_feather(tmp_path, loader_file_format)
+
+    assert "nul" not in table.column_names
+    assert "i" in table.column_names, "the rest of the row still arrives"
+
+
+@pytest.mark.parametrize("loader_file_format", [None, "parquet"])
+@pytest.mark.parametrize("unit", ["ns", "us"])
+def test_a_duration_column_fails_the_load_before_any_writer(
+    tmp_path, loader_file_format, unit
+):
+    """A duration cannot be loaded at all, whichever staging is chosen.
+
+    dlt's extract step serializes rows as JSON and refuses a timedelta, so the run dies
+    ahead of the staging format and no output is written. Pinned rather than left to be
+    discovered, because the format page states it and because the failure is the same on
+    a Parquet or ORC destination.
+    """
+    import pyarrow as pa
+
+    source = tmp_path / "dur.feather"
+    table = pa.table(
+        {"id": pa.array([1]), "dur": pa.array([1234567890], type=pa.duration(unit))}
+    )
+    with pa.ipc.new_file(str(source), table.schema) as writer:
+        writer.write_table(table)
+    out_path = tmp_path / "out.feather"
+
+    kwargs = {"loader_file_format": loader_file_format} if loader_file_format else {}
+    result = invoke_ingest_command(
+        f"file://{source}",
+        "rows",
+        f"file://{out_path}",
+        "public.rows",
+        print_output=False,
+        **kwargs,
+    )
+
+    assert result.exit_code != 0
+    assert "not JSON serializable" in str(result.output) + str(result.exception)
+    assert not out_path.exists()
 
 
 @pytest.mark.parametrize("out_format", ["feather", "parquet"])
