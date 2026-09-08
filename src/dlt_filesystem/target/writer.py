@@ -213,6 +213,26 @@ def write_csv(path: str, rows: list[dict]) -> None:
     )
 
 
+def write_feather(path: str, rows: list[dict]) -> None:
+    """Write rows as an Arrow IPC file, the container Feather V2 names, with PyArrow.
+
+    ``pa.ipc.new_file`` rather than ``pyarrow.feather.write_feather``: the latter is
+    deprecated as of pyarrow 24 and its own warning names this API. It writes V2, which
+    is what ``read_feather`` reads and what every current Arrow implementation opens.
+    """
+    import pyarrow as pa
+
+    fieldnames = _column_union(rows)
+    if rows and not fieldnames:
+        raise ValueError(
+            "Feather output requires at least one column for nonempty rows"
+        )
+    columns = {name: [row.get(name) for row in rows] for name in fieldnames}
+    table = pa.table(columns)
+    with pa.ipc.new_file(path, table.schema) as writer:
+        writer.write_table(table)
+
+
 def write_json(path: str, rows: list[dict]) -> None:
     """JSON writer emitting one array document.
 

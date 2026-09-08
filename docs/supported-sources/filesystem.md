@@ -25,25 +25,26 @@ The file format is inferred from the file extension (with optional `.gz`
 suffix), or by using a {ref}`format hint <format-hint>` if your resource
 URI does not include file extensions.
 
-| Format           | Description                                     | Extensions   | Format hint   | Read | Write |
-|:-----------------|:------------------------------------------------|:-------------|:--------------|:-----|:------|
-| {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson        | #bson         | ✅   | ❌    |
-| {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor        | #cbor         | ✅   | ❌    |
-| [CSV]            | Comma-separated values with a header row        | .csv         | #csv          | ✅   | ✅    |
-| [CSV] (DuckDB)   | Comma-separated values read with DuckDB          | .csv_duckdb  | #csv_duckdb   | ✅   | ❌    |
-| [CSV] (headless) | Comma-separated values without a header row     | .csv         | #csv_headless | ✅   | ❌    |
-| [JSON]           | One JSON document: an object or an array        | .json        | #json         | ✅   | ✅    |
-| [JSONL]          | Newline-delimited JSON                          | .jsonl       | #jsonl        | ✅   | ✅    |
-| {ref}`msgpack`   | Efficient binary serialization format           | .msgpack     | #msgpack      | ✅   | ❌    |
-| {ref}`ods`       | OpenDocument spreadsheet format                 | .ods         | #ods          | ✅   | ❌    |
-| {ref}`orc`       | Apache ORC format                               | .orc         | #orc          | ✅   | ✅    |
-| {ref}`parquet`   | Apache Parquet format                           | .parquet     | #parquet      | ✅   | ✅    |
-| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx        | #xlsx         | ✅   | ❌    |
-| {ref}`xml`       | XML format                                      | .xml         | #xml          | ✅   | ❌    |
-| {ref}`yaml`      | YAML format                                     | .yaml, .yml  | #yaml         | ✅   | ✅    |
+| Format           | Description                                     | Extensions             | Format hint   | Read | Write |
+|:-----------------|:------------------------------------------------|:-----------------------|:--------------|:-----|:------|
+| {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson                  | #bson         | ✅   | ❌    |
+| {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor                  | #cbor         | ✅   | ❌    |
+| [CSV]            | Comma-separated values with a header row        | .csv                   | #csv          | ✅   | ✅    |
+| [CSV] (DuckDB)   | Comma-separated values read with DuckDB         | .csv_duckdb            | #csv_duckdb   | ✅   | ❌    |
+| [CSV] (headless) | Comma-separated values without a header row     | .csv                   | #csv_headless | ✅   | ❌    |
+| {ref}`feather`   | Feather V2, the Apache Arrow IPC file format    | .feather, .arrow, .ipc | #feather      | ✅   | ✅    |
+| [JSON]           | One JSON document: an object or an array        | .json                  | #json         | ✅   | ✅    |
+| [JSONL]          | Newline-delimited JSON                          | .jsonl                 | #jsonl        | ✅   | ✅    |
+| {ref}`msgpack`   | Efficient binary serialization format           | .msgpack               | #msgpack      | ✅   | ❌    |
+| {ref}`ods`       | OpenDocument spreadsheet format                 | .ods                   | #ods          | ✅   | ❌    |
+| {ref}`orc`       | Apache ORC format                               | .orc                   | #orc          | ✅   | ✅    |
+| {ref}`parquet`   | Apache Parquet format                           | .parquet               | #parquet      | ✅   | ✅    |
+| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx                  | #xlsx         | ✅   | ❌    |
+| {ref}`xml`       | XML format                                      | .xml                   | #xml          | ✅   | ❌    |
+| {ref}`yaml`      | YAML format                                     | .yaml, .yml            | #yaml         | ✅   | ✅    |
 
 :::{note}
-Supported formats for write operations are currently CSV, JSON, JSONL, ORC, Parquet, and YAML.
+Supported formats for write operations are currently CSV, Feather, JSON, JSONL, ORC, Parquet, and YAML.
 :::
 
 (filesystem-types)=
@@ -283,8 +284,8 @@ databases are sources only.
 
 omniload reads each file format through the best available path rather than
 one generic reader. This section explains how that routing works, so the
-individual per-format pages (BSON, CBOR, MessagePack, ORC, Parquet, XML,
-YAML) can stay focused on how to use each format.
+individual per-format pages (BSON, CBOR, Feather, MessagePack, ORC, Parquet,
+XML, YAML) can stay focused on how to use each format.
 
 In general, omniload builds mostly upon the excellent fsspec, polars and
 iterabledata packages for local and remote filesystem access and format
@@ -296,11 +297,12 @@ decoding.
 | CSV (`#csv_duckdb`)          | `duckdb`                | DuckDB-backed CSV reader.          |
 | BSON                | Dedicated in-tree codec | Needs extended-type normalization. |
 | CBOR                | `cbor`                  | Whole-file format.                 |
+| Feather             | `pyarrow`               | Batched reader and writer.         |
 | JSON                | `orjson`                | Whole-document parse.              |
 | MessagePack         | `iterabledata`          | Streamed record-by-record.         |
 | ODS                 | `polars`                | Whole-file format.                 |
 | ORC                 | `pyarrow`               | Striped reader and writer.         |
-| Parquet             | `pyarrow`               | Whole-file format.                 |
+| Parquet             | `pyarrow`               | Batched reader.                    |
 | XML                 | `lxml`                  | Whole-file parse, hardened.        |
 | XLSX                | `polars`                | Whole-file format.                 |
 | YAML                | `yaml`                  | Whole-file decode, safe.           |
@@ -398,8 +400,8 @@ rather than failing, and the cell holds something a reader can parse.
 The read mechanism determines how a damaged file behaves, and it is worth knowing which
 guarantee you get.
 
-- **Empty files** raise reader errors for CSV, Parquet, and ORC. Empty JSON and
-  JSONL files yield no rows.
+- **Empty files** raise reader errors for CSV, Feather, ORC, and Parquet. Empty JSON
+  and JSONL files yield no rows.
 
 - **Whole-file decode (CBOR, XML, YAML)** raises on a corrupt or malformed file rather than
   loading partial data. CBOR additionally must be a *single* top-level value; files that

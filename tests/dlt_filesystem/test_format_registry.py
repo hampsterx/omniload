@@ -30,6 +30,10 @@ EXPECTED_FORMAT_TO_READER = {
     "bson": "read_bson",
     "xlsx": "read_excel",
     "csv_duckdb": "read_csv_duckdb",
+    # One reader under all three extensions Feather V2 travels under.
+    "feather": "read_feather",
+    "arrow": "read_feather",
+    "ipc": "read_feather",
     "cbor": "read_cbor",
     "msgpack": "read_msgpack",
     "xml": "read_xml",
@@ -51,6 +55,7 @@ EXPECTED_READER_NAMES = (
     "read_parquet",
     "read_csv_duckdb",
     "read_orc",
+    "read_feather",
 )
 
 

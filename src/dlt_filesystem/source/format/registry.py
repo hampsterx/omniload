@@ -30,6 +30,13 @@ BASE_READER_REGISTRATIONS = (
     ReaderRegistration("read_bson", ("bson",), transformer_order=6),
     ReaderRegistration("read_excel", ("xlsx",), transformer_order=2),
     ReaderRegistration("read_csv_duckdb", ("csv_duckdb",), transformer_order=12),
+    # `.arrow` and `.ipc` are the other two extensions Feather V2 travels under -- it is
+    # the Arrow IPC file format, and all three name one container. They are aliases for
+    # the same reason `yml` is one: the format is chosen from the path, so a file spelled
+    # `events.arrow` must resolve. Only `feather` is advertised.
+    ReaderRegistration(
+        "read_feather", ("feather", "arrow", "ipc"), transformer_order=14
+    ),
 )
 
 # Readers backed by the optional `iterable` extra (msgpack via iterabledata; cbor, xml and yaml

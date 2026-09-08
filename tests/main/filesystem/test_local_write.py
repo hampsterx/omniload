@@ -186,6 +186,10 @@ def _read_back(path, out_format):
         # and fail the row assertions rather than passing quietly.
         with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f)
+    elif out_format in ("feather", "arrow", "ipc"):
+        import pyarrow as pa
+
+        return pa.ipc.open_file(path).read_all().to_pylist()
     elif out_format == "orc":
         import pyarrow.orc as po
 

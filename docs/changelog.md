@@ -22,6 +22,15 @@
   working: a Parquet export of a decimal column wider than 38 digits of precision, which
   PyArrow held in a 256-bit decimal and Polars cannot hold at all. The same column still
   exports to CSV, JSON, JSONL and YAML, digit for digit.
+- **Filesystem: Feather V2 reads on every filesystem source.** `file://events/day.feather`
+  (or `.arrow`, or `.ipc`, or a `#feather` hint on any name) loads Apache Arrow IPC data
+  through PyArrow, one record batch at a time, so a batched file is never materialized
+  whole. `#columns=` and `#chunksize=` work as they do for ORC. Feather V1 is a different
+  container and is refused by name rather than reported as a damaged file.
+- **Filesystem: `file://` writes Feather V2.** `file://export/users.feather` (or `.arrow`,
+  or `.ipc`, or a `#feather` hint) writes one Arrow IPC file. Every Arrow type survives the
+  round trip, timezone-aware timestamps, times, decimals and all-null columns included, so
+  an export under `--loader-file-format parquet` keeps the types the source had.
 - **Filesystem: the supported-format message names formats, not extensions.** A reader
   registered under several extensions listed all of them, so `.arrow` and `.ipc` would have
   read as separate formats alongside Feather. Only the canonical name is advertised now,
