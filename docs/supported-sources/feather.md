@@ -93,14 +93,22 @@ without a time zone), times, binary values, decimals, lists, structs and
 all-null columns all survive a write followed by a read.
 
 :::{note}
-Rows are Python values, so **nanosecond** time, timestamp and duration columns
-narrow to microseconds on the way through. The reader itself keeps nanosecond
-timestamps and durations, which arrive as `pandas.Timestamp` and
-`pandas.Timedelta`; a `time64[ns]` narrows at the read, because `datetime.time`
-has no nanoseconds, and writing any of the three back emits a microsecond
-column. This is a property of the row pipeline rather than of Feather: the ORC
-and Parquet readers narrow the same values the same way, and the Feather file
-itself stores whatever precision it was written with.
+Two things narrow on the way through a load, and neither belongs to Feather:
+the file itself stores whatever it was written with.
+
+**Nanoseconds.** Rows are Python values, so nanosecond time, timestamp and
+duration columns come out at microsecond resolution. The reader keeps
+nanoseconds on a timestamp and a duration, which arrive as `pandas.Timestamp`
+and `pandas.Timedelta`, and loses them on a `time64[ns]`, because
+`datetime.time` has none; writing any of the three back emits a microsecond
+column. The Parquet reader answers identically on all three. ORC does too on
+timestamps, and cannot store the other two types at all.
+
+**Nested values under `--loader-file-format parquet`.** dlt's Parquet staging
+serializes a list or a struct to a JSON string, so the writer receives text and
+the output column is a string. The default staging path does not, and nested
+values reach the file as Arrow lists and structs. This applies to every
+`file://` output format, not just Feather.
 :::
 
 [Apache Arrow]: https://arrow.apache.org/

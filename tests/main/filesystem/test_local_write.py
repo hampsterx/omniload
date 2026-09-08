@@ -265,6 +265,46 @@ def test_yaml_survives_a_forced_parquet_intermediate(tmp_path):
     assert rows[0]["blob"] == b"hi"
 
 
+@pytest.mark.parametrize("out_format", ["feather", "parquet"])
+def test_nested_values_are_json_text_under_a_parquet_intermediate(tmp_path, out_format):
+    """What a real load delivers for a nested column, which is not what the writer can hold.
+
+    On the default staging path a list and a struct reach the writer as a list and a dict,
+    and the columnar writers store them as Arrow types. Under `--loader-file-format parquet`
+    dlt's own normalization serializes both to JSON text first, so the output column is a
+    string and the nesting is gone before any writer is called.
+
+    Pinned across two formats because it is dlt's staging rather than either writer, and
+    documented on the format pages, which had claimed the forced-parquet path preserved
+    source types.
+    """
+    (tmp_path / "in.jsonl").write_text(
+        '{"id": 1, "tags": [1, 2], "meta": {"n": 1}}\n'
+        '{"id": 2, "tags": [3], "meta": {"n": 2}}\n'
+    )
+
+    outputs = {}
+    for label, loader_file_format in (("default", None), ("parquet", "parquet")):
+        out_path = tmp_path / f"out-{label}.{out_format}"
+        kwargs = (
+            {"loader_file_format": loader_file_format} if loader_file_format else {}
+        )
+        result = invoke_ingest_command(
+            f"file://{tmp_path / 'in.jsonl'}",
+            "rows",
+            f"file://{out_path}",
+            "public.rows",
+            **kwargs,
+        )
+        assert result.exit_code == 0, result.output
+        outputs[label] = sorted(_read_back(out_path, out_format), key=lambda r: r["id"])
+
+    assert outputs["default"][0]["tags"] == [1, 2]
+    assert outputs["default"][0]["meta"] == {"n": 1}
+    assert outputs["parquet"][0]["tags"] == "[1,2]"
+    assert outputs["parquet"][0]["meta"] == '{"n":1}'
+
+
 # --- csv:// compatibility destination (#301) ---
 
 
