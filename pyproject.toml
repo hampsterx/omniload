@@ -296,6 +296,10 @@ lint.extend-ignore = [
   # Probable insecure usage of temporary file or directory
   "S108",
 ]
+lint.per-file-ignores."release/util/*" = [
+  # `print` found. These are command-line programs whose output is the result.
+  "T201",
+]
 lint.per-file-ignores."src/dlt_filesystem/source/*" = [
   # line-too-long
   "E501",
@@ -399,6 +403,10 @@ tasks.check = [
   "lint",
   "test",
 ]
+# Verify `dlt_filesystem` imports on the dependency set a standalone distribution
+# would carry. A full install always supplies omniload's base list by accident, so
+# nothing else here can see an undeclared import.
+tasks.check-standalone-imports = { cmd = "python release/util/standalone_import_probe.py" }
 tasks.docs-autobuild = [
   { cmd = "uv pip install -r docs/requirements.txt;" },
   { cmd = "sphinx-autobuild --open-browser docs docs/_build" },
