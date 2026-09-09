@@ -13,7 +13,7 @@ destination.
 ## Installation
 
 Parquet support is included in the base `omniload` installation. It uses
-[`pyarrow`] to read and write Parquet files.
+[`pyarrow`] to read Parquet files and [`polars`] to write them.
 
 ```sh
 pip install omniload
@@ -131,6 +131,11 @@ collects all loaded rows before it writes the Parquet table. This makes a
 single-file output reliable, but it is not suitable for data that cannot fit in
 memory.
 
+The column types in that file are decided by the staging format rather than by
+Parquet: under the default staging a timestamp and a decimal both arrive as
+text, so they are written as string columns. Pass `--loader-file-format parquet`
+for typed columns. See {ref}`file-load-types`.
+
 See {ref}`file-destination` for the complete URI and destination-table rules
 for the `file://` destination.
 
@@ -144,4 +149,5 @@ controls how `omniload` reads input files. A Parquet loader controls how
 You do not need to set a loader option to read a Parquet source file.
 
 [Apache Parquet]: https://parquet.apache.org/
+[`polars`]: https://docs.pola.rs/
 [`pyarrow`]: https://arrow.apache.org/docs/python/

@@ -84,8 +84,16 @@ to Python rows. Large stripes are sliced into batches according to the
 
 Common ORC types such as strings, integers, floating-point values, booleans,
 dates, timestamps, decimals, lists, maps, and structs pass through the
-PyArrow conversion. UTC timestamp values remain timezone-aware.
-Decimal values remain decimals.
+PyArrow conversion. The reader returns UTC timestamp values timezone-aware, and
+decimal values as decimals.
+
+:::{note}
+That is what the reader hands back, not what an ingest writes. dlt stages the rows
+in between, so a load to a local `file://` destination writes a timestamp and a
+decimal as text unless `--loader-file-format parquet` is passed. The DuckDB
+examples above select Parquet staging automatically and keep both typed. See
+{ref}`file-load-types`.
+:::
 
 ORC `TIMESTAMP` values have no time zone. The reader returns them as
 timezone-naive datetime values.

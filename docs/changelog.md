@@ -16,9 +16,11 @@
   which leaves the values and their scale as they were. Some floats are spelled
   differently in CSV without changing value: `1e-05` writes as `0.00001`, `1e-07` as
   `1e-7`, and a NaN as `NaN`. CRLF line endings and Snappy
-  Parquet compression are unchanged, as are the column types in a Parquet file: a
-  reader that reports Arrow types shows `large_string` where it showed `string`,
-  which is the Arrow schema travelling alongside, not the file's own. One case stops
+  Parquet compression are unchanged, and so are the Parquet column types apart from the
+  time and decimal changes named above: a reader that reports Arrow types shows
+  `large_string` where it showed `string`, which is the Arrow schema travelling alongside
+  rather than the file's own, while the decimal annotation itself moves to the format's
+  maximum precision and a wider fixed-length store. One case stops
   working: a Parquet export of a decimal column wider than 38 digits of precision, which
   PyArrow held in a 256-bit decimal and Polars cannot hold at all. The same column still
   exports to CSV, JSON, JSONL and YAML, digit for digit.
@@ -31,7 +33,7 @@
   or `.ipc`, or a `#feather` hint) writes one Arrow IPC file. Timezone-aware timestamps,
   times, decimals, nested lists and structs and all-null columns all reach the file as
   themselves when the writer is handed them. What a *load* delivers depends on dlt's
-  staging rather than on the writer, and the format page now carries that table: the
+  staging rather than on the writer, and the filesystem page carries that table: the
   default staging writes temporal, decimal and binary columns as text, Parquet staging
   writes nested values as JSON text, a wholly null column is dropped either way, and a
   duration column fails at extract. That is `file://`-wide, not Feather's.

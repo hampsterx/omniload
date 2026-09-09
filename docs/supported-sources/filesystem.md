@@ -383,17 +383,79 @@ Some values are made portable by the decoder itself rather than by omniload:
 `cbor2` decodes the standard CBOR tags (datetime, big integers, decimals)
 into native Python types directly.
 
-Those reach every file destination intact. A format with no column type of its own
-for a value writes it as text rather than refusing it, so a decimal lands in a JSON,
-JSONL, YAML or CSV file as `1.50`, with the scale a float would drop, while Parquet
-carries it as a decimal column. Nested maps and arrays are handled recursively. The exact
-per-format mapping is on each format's own documentation page under
-"Extended-type handling".
+Handed one of these Python values directly, a format with no column type of its own for
+it writes it as text rather than refusing it, so a decimal lands in a JSON, JSONL, YAML
+or CSV file as `1.50`, with the scale a float would drop, while Parquet carries it as a
+decimal column. Nested maps and arrays are handled recursively. The exact per-format
+mapping is on each format's own documentation page under "Extended-type handling", for
+that format's decoder or its writer as the format allows; several are read-only.
+
+Whether a writer is handed such a value at all is a separate question, decided by the
+staging format rather than by the destination: see {ref}`file-load-types`. Under the
+default staging a decimal reaches every writer as a string, so it is written as text even
+where the format could hold a decimal column.
 
 CSV is the one write format with neither a nested nor a binary column type. A struct,
 a list or a `bytes` value is written there the way the JSON writers write it: JSON
 text for a document, a base64 string for binary. So a nested source exports to CSV
 rather than failing, and the cell holds something a reader can parse.
+
+(file-load-types)=
+
+### What a load delivers
+
+An ingest is not the reader and writer back to back: dlt stages the rows between
+them, and the staging format decides what a writer receives. So the values that
+reach a destination file are chosen by the staging format, not by how much the
+destination format can hold.
+
+The table below is for a local `file://` destination, which stages gzip JSONL
+by default. A warehouse destination that supports Parquet staging, DuckDB and
+BigQuery among them, selects it automatically from a filesystem source, so such
+a load follows the right-hand column without being asked.
+
+| Source column | Default staging (gzip JSONL) | `--loader-file-format parquet` |
+| :--- | :--- | :--- |
+| integer, float, boolean, string | itself | itself |
+| date, timestamp, time, binary, decimal | ISO or base64 **string** | itself, retyped by dlt's schema |
+| list, struct | itself | JSON **string** |
+| all-null column | dropped | dropped |
+| duration | **load fails** | **load fails** |
+
+"Itself" describes what staging hands the writer, not what the file ends up
+holding, and it carries one qualification: dlt infers a schema rather than
+copying the source's, so a **string** shaped like a timestamp is retyped as one.
+`2026-09-01T12:00:00` reaches a default-staged load as the text
+`2026-09-01T12:00:00+00:00`, and a Parquet-staged one as a UTC timestamp column.
+
+:::{warning}
+ORC cannot store a time column at all. A source carrying one loads to `.orc`
+under the default staging, where the column is text by then, and **fails under
+Parquet staging** with `Unknown or unsupported Arrow type: time64[us]`.
+:::
+
+Two of those rows are worth spelling out.
+
+A **duration** column cannot be loaded at all. dlt's extract step serializes
+rows as JSON and refuses a `Timedelta`, so the run fails with
+`Type is not JSON serializable: Timedelta` before any writer sees it. Cast such
+a column in the source query if you need it.
+
+A column that is **null in every row** does not reach the output. dlt omits a
+null key per row, so a wholly null column has no keys anywhere and the writer
+never learns it existed.
+
+Under Parquet staging dlt applies its own schema rather than the source's, so a
+naive timestamp arrives as UTC and a **decimal is converted to dlt's default
+scale of 9**. That conversion has to be lossless rather than rounding: it
+fails the load with `Rescaling Decimal value would cause data loss` where it
+would discard a nonzero fractional digit. `3.14` converts, and so does a value
+padded with trailing zeros past scale 9; `3.1400000001` does not. The precision the
+destination then records is the writer's choice, not dlt's: a source
+`decimal128(38, 2)` carrying `3.14` lands as `decimal128(10, 9)` in Feather and
+ORC, and as `decimal128(38, 9)` in Parquet.
+Use the default staging when you want the text form, and Parquet staging when
+you want typed columns.
 
 ### Integrity and truncation
 
