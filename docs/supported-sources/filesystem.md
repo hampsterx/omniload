@@ -27,6 +27,7 @@ URI does not include file extensions.
 
 | Format           | Description                                     | Extensions             | Format hint   | Read | Write |
 |:-----------------|:------------------------------------------------|:-----------------------|:--------------|:-----|:------|
+| {ref}`avro`      | Apache Avro object container files              | .avro                  | #avro         | ✅   | ❌    |
 | {ref}`bson`      | Binary JSON (MongoDB dump format)               | .bson                  | #bson         | ✅   | ❌    |
 | {ref}`cbor`      | Concise Binary Object Representation (RFC 8949) | .cbor                  | #cbor         | ✅   | ❌    |
 | [CSV]            | Comma-separated values with a header row        | .csv                   | #csv          | ✅   | ✅    |
@@ -284,8 +285,8 @@ databases are sources only.
 
 omniload reads each file format through the best available path rather than
 one generic reader. This section explains how that routing works, so the
-individual per-format pages (BSON, CBOR, Feather, MessagePack, ORC, Parquet,
-XML, YAML) can stay focused on how to use each format.
+individual per-format pages (Avro, BSON, CBOR, Feather, MessagePack, ORC,
+Parquet, XML, YAML) can stay focused on how to use each format.
 
 In general, omniload builds mostly upon the excellent fsspec, polars and
 iterabledata packages for local and remote filesystem access and format
@@ -295,6 +296,7 @@ decoding.
 |:--------------------|:------------------------|:-----------------------------------|
 | CSV (`#csv`), JSONL          | `polars` / `pyarrow`    | Built-ins.                         |
 | CSV (`#csv_duckdb`)          | `duckdb`                | DuckDB-backed CSV reader.          |
+| Avro                | `polars`                | Whole-file format.                 |
 | BSON                | Dedicated in-tree codec | Needs extended-type normalization. |
 | CBOR                | `cbor`                  | Whole-file format.                 |
 | Feather             | `pyarrow`               | Batched reader and writer.         |
@@ -462,14 +464,22 @@ you want typed columns.
 The read mechanism determines how a damaged file behaves, and it is worth knowing which
 guarantee you get.
 
-- **Empty files** raise reader errors for CSV, Feather, ORC, and Parquet. Empty JSON
-  and JSONL files yield no rows.
+- **Empty files** raise reader errors for Avro, CSV, Feather, ORC, and Parquet. Empty
+  JSON and JSONL files yield no rows.
 
 - **Whole-file decode (CBOR, XML, YAML)** raises on a corrupt or malformed file rather than
   loading partial data. CBOR additionally must be a *single* top-level value; files that
   concatenate several top-level objects are read only up to the first, a decoder limitation that
   cannot be detected at read time. XML additionally rejects an entity-expansion bomb and a
   mismatched encoding declaration.
+
+- **Block-structured formats (Avro)** carry no trailing index or record count, so a tail cut
+  exactly at a block boundary leaves a shorter valid file that nothing can distinguish from
+  the original: the surviving blocks load and nothing is reported. A cut one byte into the
+  next block's header is *detectable* corruption and is nonetheless accepted the same way,
+  which is a limitation of the reader rather than of the format; two or more bytes in does
+  raise. Feather, ORC and Parquet each carry a footer that a truncation destroys, so they
+  raise on the same damage.
 
 - **Streaming formats (MessagePack)** carry no length prefix, so a truncated tail reads as a
   clean end-of-file: the partial trailing record, and anything after a mid-stream corruption,

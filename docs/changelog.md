@@ -2,6 +2,18 @@
 
 ## in progress
 
+- **Filesystem: Apache Avro reads on every filesystem source.**
+  `file://events/day.avro` loads, as does `s3://bucket/events/day.data#avro` and any
+  other source that goes through the shared file readers. Avro is decoded with `polars`,
+  which is already a core dependency, so nothing new is installed. Logical types come
+  back as themselves: `date` as a date, `timestamp-micros` and `timestamp-millis` as
+  UTC-aware datetimes, `time-micros` as a time, `decimal` as a decimal. `#columns=` and
+  `#chunksize=` work as they do on the other columnar readers. Avro is read-only: the
+  Avro writer available here corrupts a list column that holds an empty list before a
+  non-empty one, so registering it would offer an export that fails silently on ordinary
+  data. Three Avro schemas have no mapping and are rejected by name rather than loaded
+  in part: a `map` field, a field typed `null` outright, and a union of more than two
+  branches.
 - **Filesystem: `file://` writes CSV and Parquet through Polars.** Both writers built
   their column union by hand, because dlt omits a null key rather than writing it, and
   Polars builds that union itself from every row of the load. What the move changes is
