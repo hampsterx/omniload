@@ -105,42 +105,12 @@ fine, and exports digit for digit to JSON, JSONL, CSV and YAML. Parquet is not
 an alternative for it: that writer accepts the value and produces a file its own
 reader then refuses with `Integers with more than 64 bits not implemented`.
 
-(feather-load-types)=
-
 ### What a load delivers
 
-An ingest is not the reader and writer back to back: dlt stages the rows
-between them, and the staging format decides what the writer receives. This is
-`file://`-wide rather than Feather's: the same table describes a Parquet
-destination, and an ORC one except that ORC cannot store a time column at all,
-so a source carrying one loads to `.orc` under the default staging (where the
-column is text by then) and fails under Parquet staging.
-
-| Source column | Default staging (gzip JSONL) | `--loader-file-format parquet` |
-| :--- | :--- | :--- |
-| integer, float, boolean, string | itself | itself |
-| date, timestamp, time, binary, decimal | ISO or base64 **string** | itself, retyped by dlt's schema |
-| list, struct | itself | JSON **string** |
-| all-null column | dropped | dropped |
-| duration | **load fails** | **load fails** |
-
-Two of those rows are worth spelling out.
-
-A **duration** column cannot be loaded at all. dlt's extract step serializes
-rows as JSON and refuses a `Timedelta`, so the run fails with
-`Type is not JSON serializable: Timedelta` before any writer sees it. Cast such
-a column in the source query if you need it.
-
-A column that is **null in every row** does not reach the output. dlt omits a
-null key per row, so a wholly null column has no keys anywhere and the writer
-never learns it existed.
-
-Under Parquet staging dlt applies its own schema rather than the source's, so a
-naive timestamp arrives as UTC, and a decimal is quantized to dlt's default
-scale of 9 before PyArrow infers a type from it: a source
-`decimal128(38, 2)` carrying `3.14` lands as `decimal128(10, 9)`. Use the
-default staging when you want the text form, and Parquet staging when you want
-typed columns.
+An ingest is not the reader and writer back to back: dlt stages the rows between
+them, and the staging format decides what a writer receives. That behaviour is
+`file://`-wide rather than Feather's, so it is documented once, for every
+destination format, under {ref}`file-load-types`.
 
 [Apache Arrow]: https://arrow.apache.org/
 [Feather]: https://arrow.apache.org/docs/python/feather.html
