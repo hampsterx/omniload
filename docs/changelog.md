@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/09/10 v0.16.0
+
 - **Filesystem: `filesystem()` and `readers()` accept every keyword dlt's own accept.**
   A call written against `dlt.sources.filesystem` that passes `kwargs`, `client_kwargs`
   or `incremental` by keyword now works against `dlt_filesystem.source.adapter` too,
