@@ -2,6 +2,15 @@
 
 ## in progress
 
+- **Filesystem: `filesystem()` and `readers()` take every argument dlt's own take.**
+  Code written against `dlt.sources.filesystem` keeps working when it imports
+  `dlt_filesystem.source.adapter` instead: `kwargs` and `client_kwargs` reach the fsspec
+  constructor and its native client, and an `incremental` cursor carrying `row_order`
+  orders the listing by its cursor field, matching dlt for both `last_value_func`
+  directions. All three are keyword-only, so no existing positional call changes meaning.
+  `extract_content`'s declared default is now `False`, which is what it has always
+  resolved to and what dlt declares; a caller who wants file content in the listing
+  passes `extract_content=True`, as before.
 - **Filesystem: Apache Avro reads on every filesystem source.**
   `file://events/day.avro` loads, as does `s3://bucket/events/day.data#avro` and any
   other source that goes through the shared file readers. Avro is decoded with `polars`,
