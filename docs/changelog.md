@@ -10,8 +10,8 @@
   the listing by its cursor field, matching dlt for both `last_value_func` directions.
   The three are appended keyword-only rather than placed where dlt has them, so no
   existing positional call changes meaning; the flip side is that compatibility is by
-  keyword, since dlt's positional slots for `kwargs` and `client_kwargs` are where
-  `require_file_match` and `filesystem_incremental` sit here.
+  keyword, since in `filesystem()` dlt's positional slots for `kwargs` and
+  `client_kwargs` are where `require_file_match` and `filesystem_incremental` sit.
   `extract_content`'s declared default is now `False`, which is what it has always
   resolved to and what dlt declares; a caller who wants file content in the listing
   passes `extract_content=True`, as before.
@@ -19,7 +19,8 @@
   does to its own filesystem resource, so a caller reading `resource.incremental` gets
   the wrapper: the cursor is `resource.incremental.incremental`, and a resource with no
   cursor applied is that being `None` rather than `resource.incremental` itself. Bound
-  clones of one resource now share a cursor the way dlt's do.
+  clones of one resource now share a cursor, which is what dlt's do today rather than a
+  guarantee; build separate resources where the cursors have to be independent.
 - **Filesystem: Apache Avro reads on every filesystem source.**
   `file://events/day.avro` loads, as does `s3://bucket/events/day.data#avro` and any
   other source that goes through the shared file readers. Avro is decoded with `polars`,
