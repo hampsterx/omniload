@@ -77,17 +77,26 @@ def _reject_unconsumed_incremental_key(
     does not consume.
 
     A source that declares ``consumed_run_options()`` has told us its full run
-    vocabulary, so a requested row-level ``incremental_key`` reaching it is
-    always a user error, never a name the source might itself consume. This
-    covers every filesystem-family source (and any other source that declares
-    the hook) with one check: they used to carry it themselves, keyed on the
-    nulled ``incremental_key`` for most of them (dead, since it is always
-    ``None`` by the time ``dlt_source`` would see it) and on
-    ``requested_incremental_key`` for the rest (live). A source that does not
-    declare the hook (Delta Lake, mq-bridge) keeps its own guard, unaffected.
+    vocabulary, so a requested row-level ``incremental_key`` reaching it is a
+    user error *provided the source did not itself ask for one of the two
+    incremental-key names* -- the hook's contract is "names I accept", not "I
+    own incrementality", and a future source could legitimately declare one of
+    them. Every current declarer happens not to, which is what lets this reuse
+    one check for every filesystem-family source (and anything else that
+    declares the hook): they used to carry it themselves, keyed on the nulled
+    ``incremental_key`` for most of them (dead, since it is always ``None`` by
+    the time ``dlt_source`` would see it) and on ``requested_incremental_key``
+    for the rest (live). A source that does not declare the hook (Delta Lake,
+    mq-bridge) keeps its own guard, unaffected.
     """
     consumed_run_options = getattr(source, "consumed_run_options", lambda: None)()
-    if consumed_run_options is not None and requested_incremental_key:
+    if (
+        consumed_run_options is not None
+        and requested_incremental_key
+        and {"incremental_key", "requested_incremental_key"}.isdisjoint(
+            consumed_run_options
+        )
+    ):
         raise ValueError(
             f"{scheme} takes care of incrementality on its own, "
             "you should not provide incremental_key"

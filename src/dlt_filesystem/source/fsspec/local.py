@@ -133,7 +133,7 @@ class LocalFilesystemSource(FilesystemSource):
                 storage_namespace="file",
                 filesystem_incremental=filesystem_incremental,
                 require_file_match=source_selects_single_file("", spec),
-                hints=hints,
+                hints={**(reader_hints or {}), **hints},
                 column_types=column_types,
             )
         )

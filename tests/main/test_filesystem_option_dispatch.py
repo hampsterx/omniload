@@ -17,10 +17,11 @@ import sqlite3
 from unittest import mock
 
 import duckdb
+import pytest
 
 from dlt_filesystem.source.fsspec.local import LocalFilesystemSource
 from omniload import run_ingest
-from omniload.api import RUN_OPTION_KEYS
+from omniload.api import RUN_OPTION_KEYS, _reject_unconsumed_incremental_key
 from omniload.core.router import SqlSourceRouter
 
 
@@ -47,6 +48,38 @@ def _spy_dlt_source(cls) -> tuple[list[dict], mock._patch]:
         return original(self, uri, table, **kwargs)
 
     return calls, mock.patch.object(cls, "dlt_source", wrapper)
+
+
+class _StubSource:
+    """A minimal stand-in with a controllable `consumed_run_options()`."""
+
+    def __init__(self, consumed: frozenset) -> None:
+        self._consumed = consumed
+
+    def consumed_run_options(self) -> frozenset:
+        return self._consumed
+
+
+def test_reject_fires_for_a_declarer_that_does_not_consume_the_key():
+    """The common case: a source names its vocabulary and it excludes both
+    incremental-key spellings, so a requested one is rejected."""
+    source = _StubSource(frozenset({"filesystem_incremental", "column_types"}))
+    with pytest.raises(ValueError, match="you should not provide incremental_key"):
+        _reject_unconsumed_incremental_key(source, "file", "some_column")
+
+
+def test_reject_is_silent_for_a_declarer_that_does_consume_the_key():
+    """The hook's contract is "names I accept", not "I own incrementality": a
+    source that names one of the incremental-key spellings in its own declared
+    vocabulary must not be rejected for receiving it."""
+    source = _StubSource(frozenset({"requested_incremental_key"}))
+    _reject_unconsumed_incremental_key(source, "hypothetical", "some_column")
+
+
+def test_reject_is_silent_for_a_source_that_declares_nothing():
+    """A source with no `consumed_run_options()` at all (the ~90 majority) is
+    untouched here; it keeps whatever guard it carries itself, if any."""
+    _reject_unconsumed_incremental_key(object(), "sqlite", "some_column")
 
 
 def test_filesystem_source_receives_only_its_declared_options(tmp_path):

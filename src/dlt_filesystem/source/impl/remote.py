@@ -129,7 +129,7 @@ class GCSSource(FilesystemSource):
                 storage_namespace="gcs",
                 filesystem_incremental=filesystem_incremental,
                 require_file_match=source_selects_single_file(uri, table),
-                hints=blob_hints(parsed_uri, table),
+                hints={**(reader_hints or {}), **blob_hints(parsed_uri, table)},
                 column_types=column_types,
             )
         )
@@ -206,7 +206,7 @@ class S3CompatibleSource(FilesystemSource):
                 storage_namespace=f"s3:{self.endpoint_namespace(endpoint_url[0] if endpoint_url else None, 'aws')}",
                 filesystem_incremental=filesystem_incremental,
                 require_file_match=source_selects_single_file(uri, table),
-                hints=blob_hints(parsed_uri, table),
+                hints={**(reader_hints or {}), **blob_hints(parsed_uri, table)},
                 column_types=column_types,
             )
         )
@@ -285,7 +285,7 @@ class AzureSource(FilesystemSource):
                 ),
                 filesystem_incremental=filesystem_incremental,
                 require_file_match=source_selects_single_file(uri, table),
-                hints=blob_hints(parsed_uri, table),
+                hints={**(reader_hints or {}), **blob_hints(parsed_uri, table)},
                 column_types=column_types,
             )
         )
@@ -357,7 +357,7 @@ class SFTPSource(FilesystemSource):
                 storage_namespace=(f"sftp:{host.lower()}:{port}:{username or ''}"),
                 filesystem_incremental=filesystem_incremental,
                 require_file_match=source_selects_single_file(uri, table),
-                hints=blob_hints(parsed_uri, table),
+                hints={**(reader_hints or {}), **blob_hints(parsed_uri, table)},
                 column_types=column_types,
             )
         )

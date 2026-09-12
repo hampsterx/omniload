@@ -324,7 +324,10 @@ class HttpFilesystemSource(FilesystemSource):
             reader_hints=reader_hints,
         )
         if chunksize is not None:
-            resource_options.reader_hints = {"chunksize": int(chunksize)}
+            resource_options.reader_hints = {
+                **(resource_options.reader_hints or {}),
+                "chunksize": int(chunksize),
+            }
 
         fs_kwargs = locator.options.fs_kwargs
         fs_kwargs.update(kwargs)

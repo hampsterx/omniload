@@ -65,13 +65,15 @@ GRAPH_AUTH = (
     "&client_secret=abc~xyz789EXAMPLE_foo"
 )
 
-#: The two names every source in this family declares by name and consumes as a
-#: resource option, never as a connector keyword. Values chosen to be provably
+#: The three names every source in this family declares by name and consumes as
+#: a resource option, never as a connector keyword. Values chosen to be provably
 #: present on the reference if forwarded correctly, and provably absent from a
-#: constructor spy if they leak.
+#: constructor spy if they leak. None of the `CASES` URIs below carry a `#`
+#: fragment, so `reader_hints`' sentinel key cannot collide with a URI hint.
 DECLARED_OPTIONS: dict[str, Any] = {
     "filesystem_incremental": True,
     "column_types": {"name": {"data_type": "text"}},
+    "reader_hints": {"probe_hint": "from-run"},
 }
 
 
@@ -329,12 +331,13 @@ def test_uri_connection_options_survive_the_split(case, tmp_path):
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case.scheme)
 def test_resource_options_reach_the_reference(case, tmp_path):
-    """Both options this family owns land on the reference, on every scheme."""
+    """All three options this family owns land on the reference, on every scheme."""
     _skip_unsupported(case.scheme)
     reference, _ = _drive(case, tmp_path)
 
     assert reference.filesystem_incremental is True
     assert reference.column_types == DECLARED_OPTIONS["column_types"]
+    assert reference.hints.get("probe_hint") == "from-run"
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case.scheme)
@@ -407,6 +410,26 @@ def test_a_name_outside_the_package_vocabulary_now_reaches_the_constructor(tmp_p
     received = calls[-1]
     assert received["page_size"] == "7"
     assert received["tls"] is True
+
+
+def test_direct_connector_kwarg_reaches_the_constructor(tmp_path):
+    """The subtractive property, on the `**kwargs` carrier rather than the URI.
+
+    Every other test in this matrix supplies connector arguments through the
+    URI query string (`case.expect_kwargs`). A caller can also pass one
+    directly to `dlt_source` (a library caller, or `--filesystem-hint`-style
+    programmatic use), and it has to reach the constructor the same way: it is
+    not one of the three declared names, so it is connector-only by
+    construction (an explicit keyword-only parameter, not a subtraction from
+    `**kwargs`). Also checks precedence: a directly-passed value wins over the
+    same name arriving on the URI, since `fs_kwargs.update(kwargs)` runs after
+    the URI-derived base.
+    """
+    case = Case("ftp", "ftp://user:pw@host/bucket/data.csv?block_size=100")
+    _, calls = _drive(case, tmp_path, block_size=999)
+
+    received = calls[-1]
+    assert received["block_size"] == 999
 
 
 def test_webdav_rejects_an_omniload_run_option_it_does_not_declare(tmp_path):
@@ -507,8 +530,14 @@ def test_declared_options_never_appear_in_the_package_as_omniload_names():
         r"\b(" + "|".join(re.escape(name) for name in forbidden) + r")\b"
     )
 
+    scanned = sorted(package_root.rglob("*.py"))
+    # An empty scan (a moved or renamed package root) would make every assertion
+    # below pass vacuously, so the sweep having actually run is part of the gate.
+    assert package_root.is_dir(), f"{package_root} is not a directory"
+    assert len(scanned) > 30, f"expected dozens of modules, found {len(scanned)}"
+
     hits: list[str] = []
-    for path in package_root.rglob("*.py"):
+    for path in scanned:
         text = path.read_text()
         for name in sorted(set(pattern.findall(text))):
             hits.append(f"{path.relative_to(package_root)}: {name}")
