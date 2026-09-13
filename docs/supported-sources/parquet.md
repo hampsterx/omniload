@@ -139,6 +139,46 @@ for typed columns. See {ref}`file-load-types`.
 See {ref}`file-destination` for the complete URI and destination-table rules
 for the `file://` destination.
 
+## Extended-type handling
+
+This section describes the reader and the writer called directly. An ingest
+stages rows between the two, and what a load delivers to a file is decided there
+rather than here: see {ref}`file-load-types`.
+
+Read directly, strings, integers, floating-point values, booleans, dates,
+timestamps, times, binary values, decimals, lists, structs and all-null columns
+all come back as themselves. A time zone survives the read: a
+`timestamp[us, tz=UTC]` column arrives as a timezone-aware `datetime`, and a
+naive one stays naive.
+
+Nanosecond columns are the exception, because a row carries Python values rather
+than Arrow ones. A `time64[ns]` narrows at the read, `datetime.time` having no
+nanoseconds, so `00:00:00.123456789` arrives as `00:00:00.123456`; passed back
+to the writer it becomes a `time64[ns]` column again, carrying the narrowed
+value. Nanosecond timestamps and durations keep their precision at the read, the
+pandas types carrying it, and lose it on the way back out, where the writer emits
+microsecond columns. The Feather reader answers the same way, which the test
+suite pins; the file itself stores whatever precision it was written with.
+
+The writer has limits of its own, and they follow from the library split: the
+reader is `pyarrow`, the writer is [`polars`]. Polars widens an unsigned integer
+above the signed 64-bit range to a 128-bit integer rather than refusing it, so
+such a column is written as one. The file is valid Parquet and Polars reads it
+back digit for digit, but `pyarrow` does not implement that width, so reading it
+again through `omniload` fails with `Integers with more than 64 bits not
+implemented`, and so does reading its schema alone. `write_feather` and
+`write_orc` build a PyArrow table from the same Python values, where inference
+stops at a signed 64-bit, and raise `OverflowError` rather than writing a file.
+The JSON, JSONL, CSV and YAML writers keep the value digit for digit.
+
+A decimal too wide for a 128-bit store goes the other way, and it is the value
+that decides rather than the column's declared type: a row carries a Python
+`Decimal`, and every writer infers from that one. A `decimal256(41, 2)` column
+holding `3.14` reads and writes without complaint, as `decimal128(38, 2)`. One
+holding a 41-digit value reads back exactly and then fails the Parquet write
+with `Decimal is too large to fit in Decimal128`, where `write_feather` takes it
+and `write_orc` refuses it too.
+
 ## Parquet files and Parquet loader files
 
 The Parquet source format is independent of the Parquet loader format that
