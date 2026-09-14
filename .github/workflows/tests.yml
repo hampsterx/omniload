@@ -107,5 +107,5 @@ jobs:
         # Calamine and mq-bridge load incompatible native runtimes on macOS ARM.
         # Exercise both, but keep workbook tests in a separate interpreter process.
         run: |
-          pytest -m "not integration" -k "not odbc" -p no:cacheprovider --ignore=tests/dlt_filesystem/format/test_spreadsheet.py
-          pytest -m "not integration" -k "not odbc" -p no:cacheprovider tests/dlt_filesystem/format/test_spreadsheet.py -n1
+          pytest -m "not integration" -k "not odbc" -p no:cacheprovider --ignore=tests/main/filesystem/test_spreadsheet.py
+          pytest -m "not integration" -k "not odbc" -p no:cacheprovider tests/main/filesystem/test_spreadsheet.py -n1
