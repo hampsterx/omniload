@@ -144,4 +144,4 @@ it was silently dropped wherever it arrived. Now it reaches the connector
 untouched, same as any other unrecognized keyword: most backends ignore it,
 at least one (WebDAV's `webdav4` client) raises `TypeError`. Named as a
 behaviour change rather than shipped quietly; see
-`tests/dlt_filesystem/test_source_option_ownership.py::test_webdav_rejects_an_omniload_run_option_it_does_not_declare`.
+`tests/main/test_source_option_ownership.py::test_webdav_rejects_an_omniload_run_option_it_does_not_declare`.
