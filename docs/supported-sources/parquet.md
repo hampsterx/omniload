@@ -161,15 +161,18 @@ microsecond columns. The Feather reader answers the same way, which the test
 suite pins; the file itself stores whatever precision it was written with.
 
 The writer has limits of its own, and they follow from the library split: the
-reader is `pyarrow`, the writer is [`polars`]. Polars widens an unsigned integer
-above the signed 64-bit range to a 128-bit integer rather than refusing it, so
-such a column is written as one. The file is valid Parquet and Polars reads it
-back digit for digit, but `pyarrow` does not implement that width, so reading it
-again through `omniload` fails with `Integers with more than 64 bits not
-implemented`, and so does reading its schema alone. `write_feather` and
-`write_orc` build a PyArrow table from the same Python values, where inference
-stops at a signed 64-bit, and raise `OverflowError` rather than writing a file.
-The JSON, JSONL, CSV and YAML writers keep the value digit for digit.
+reader is `pyarrow`, the writer is [`polars`]. Polars widens an integer above the
+signed 64-bit range to a 128-bit one, and Parquet has no type for that, so the
+writer narrows such a column to an unsigned 64-bit integer before writing it,
+inside a struct or a list of structs as well as at the top level. A value in `0..2**64-1` is written
+as `uint64` and reads back digit for digit; anything else, a value past
+`2**64-1` or a negative in a column another row widened, is refused by value and
+by the column holding it, and no file is written. Inside a bare list the value is
+named and the column is not, which is Polars' own error reporting.
+`write_feather` and `write_orc` build a PyArrow table from the same Python
+values, where inference stops at a signed 64-bit, and raise `OverflowError` on
+the whole range instead. The JSON, JSONL, CSV and YAML writers keep any of these
+values digit for digit.
 
 A decimal too wide for a 128-bit store goes the other way, and it is the value
 that decides rather than the column's declared type: a row carries a Python

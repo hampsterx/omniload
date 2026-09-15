@@ -2,6 +2,19 @@
 
 ## in progress
 
+- **Filesystem: the Parquet writer no longer emits an integer column its own
+  reader cannot open.** Polars widens an integer past the signed 64-bit range to
+  a 128-bit one, which Parquet has no type for: such a column was written as an
+  untyped 16-byte `FIXED_LEN_BYTE_ARRAY`, which `pyarrow` refuses to read at all
+  and DuckDB returns as a `BLOB`, so the export left carrying a value no
+  consumer could spend. A column whose values all fit `0..2**64-1` is now
+  narrowed to `uint64` and reads back unchanged, inside a struct or a list of
+  structs as well as at the top level. The part of that band above `2**63` is
+  where this writer is the alternative `write_orc` and `write_feather` are not,
+  both of them refusing from there up. Past `2**64-1`, and on any negative in a
+  column another row widened, all three refuse; this one names the offending
+  value before the file is opened.
+
 - **Filesystem: a `dlt_source` implementation now declares the run options it
   consumes, instead of the run subtracting its own vocabulary from every call.**
   `filesystem_incremental` and `column_types` are named parameters on every
