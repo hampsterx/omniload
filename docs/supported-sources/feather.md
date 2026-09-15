@@ -101,9 +101,11 @@ was written with.
 The writer has one limit of its own, shared with `write_orc` because both build
 their table from Python values: an unsigned integer above the signed 64-bit
 range raises `OverflowError` rather than being written. Such a column reads back
-fine, and exports digit for digit to JSON, JSONL, CSV and YAML. Parquet is not
-an alternative for it: that writer accepts the value and produces a file its own
-reader then refuses with `Integers with more than 64 bits not implemented`.
+fine, and exports digit for digit to JSON, JSONL, CSV and YAML. Parquet takes it
+too, up to `2**64-1`, by a different route: Polars widens the value rather than
+refusing it, and the Parquet format has no 128-bit integer type to write it as,
+so that writer narrows the column to an unsigned 64-bit one. Past `2**64-1` it
+refuses like these two, with a different error.
 
 ### What a load delivers
 
