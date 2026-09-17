@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/09/17 v0.17.0
+
 - **SQL sources: an `adbcbridge` backend, ADBC over ODBC.** `--sql-backend
   adbcbridge` reads a SQL source through the database's ODBC driver via
   [adbcBridge](https://github.com/singhpratech/adbcbridge) and yields Arrow record
