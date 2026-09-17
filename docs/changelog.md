@@ -15,10 +15,7 @@
   at the precision the column declares (a PostgreSQL `TIMESTAMP(0)` as seconds).
   Installed with the `adbcbridge` extra (adbcBridge 0.1.3 or later, which keeps
   `timestamptz` instants on a server whose session zone is not UTC), part of
-  `full`; the container image
-  already ships unixODBC with the PostgreSQL and SQL Server drivers it needs.
-  `scd2` rejects it, as it does the other Arrow backends. Thanks, @amotl, for the
-  suggestion in #138.
+  `full`. Thanks, @singhpratech.
 
 - **Filesystem: an HTTP block size of `0` reads the body whole instead of
   handing back a file that cannot seek.** fsspec's streaming file reports
