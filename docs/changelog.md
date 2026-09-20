@@ -2,6 +2,11 @@
 
 ## in progress
 
+- **Tests: the Arrow `readinto` shim's write-handle test reads the instance.** fsspec
+  2026.9.0 mirrors `readinto` onto `ArrowFile` for every mode, so `hasattr` no longer
+  separates what fsspec provides from what the shim injects. The shim itself is unchanged
+  and stays, because the supported floor is `fsspec>=2024.6`.
+
 ## 2026/09/17 v0.17.0
 
 - **SQL sources: an `adbcbridge` backend, ADBC over ODBC.** `--sql-backend
