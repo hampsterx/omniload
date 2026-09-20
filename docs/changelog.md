@@ -2,6 +2,12 @@
 
 ## in progress
 
+- **Tests: the memory-store fixtures keep to their own store.** Two test modules
+  subclass `MemoryFileSystem` to hold their fixtures apart from fsspec's
+  process-global store, but `store` is a class attribute the subclass inherits
+  rather than replaces, so their `clear()` emptied the store the remote-filesystem
+  tests write into at import time. Each subclass now carries its own.
+
 - **Tests: the Arrow `readinto` shim's write-handle test reads the instance.** fsspec
   2026.9.0 mirrors `readinto` onto `ArrowFile` for every mode, so `hasattr` no longer
   separates what fsspec provides from what the shim injects. The shim itself is unchanged
