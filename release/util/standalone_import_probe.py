@@ -390,7 +390,7 @@ def uv_prefix(python: str, requirements: pathlib.Path) -> list[str]:
     after it, rather than a venv this program creates and has to keep honest.
     It does not stop uv reading configuration, and a `dependency-metadata` entry
     there can declare that some installed package requires the very name the
-    extra omits, which is exactly the false green this program exists to
+    set omits, which is exactly the false green this program exists to
     prevent. Measured on uv 0.9.26: a discovered `uv.toml` reaches an
     `--isolated --no-project` resolution and `--no-config` stops it. An explicit
     `UV_CONFIG_FILE` outranks `--no-config`, which is why the environment is
