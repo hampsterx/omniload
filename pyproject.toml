@@ -427,6 +427,7 @@ tasks.lint = [
 ]
 tasks.release = [
   { cmd = "python -m build" },
+  { cmd = "python -m build --outdir dist packages/dlt-filesystem" },
   { cmd = "twine upload --verbose --skip-existing dist/*" },
 ]
 tasks.test = { cmd = "pytest", env = { TESTCONTAINERS_RYUK_DISABLED = "true" } }

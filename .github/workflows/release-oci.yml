@@ -51,10 +51,11 @@ jobs:
           enable-cache: true
           python-version: '3.14'
 
-      - name: Build wheel package
+      - name: Build wheel packages
         run: |
           uv pip install build
           python -m build
+          python -m build --outdir dist packages/dlt-filesystem
 
       - name: Upload wheel package
         uses: actions/upload-artifact@v7
