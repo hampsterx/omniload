@@ -51,6 +51,22 @@ def test_both_projects_derive_their_version_the_same_way():
     assert tables["omniload"] == tables["dlt-filesystem"]
 
 
+def test_both_projects_let_versioningit_supply_the_version():
+    """An equal `[tool.versioningit]` table is inert unless versioningit is wired in.
+
+    Without this, either project could move to a different dynamic-version provider,
+    keep the matching table nobody reads any more, and diverge with the assertion above
+    still green.
+    """
+    backends = {}
+    for name in PROJECTS:
+        build_system = _pyproject(name)["build-system"]
+        requires = " ".join(build_system["requires"]).lower()
+        assert "versioningit" in requires, f"{name} does not build with versioningit"
+        backends[name] = build_system["build-backend"]
+    assert backends["omniload"] == backends["dlt-filesystem"]
+
+
 def test_both_projects_take_their_version_from_the_build():
     """A static `version` in either project would break the pairing silently."""
     for name in PROJECTS:
