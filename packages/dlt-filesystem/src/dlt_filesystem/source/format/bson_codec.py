@@ -1,6 +1,6 @@
 """BSON extended-type normalization for the filesystem BSON reader.
 
-Self-contained mirror of ``omniload.source.mongodb.helpers.convert_mongo_objs`` that
+Self-contained mirror of omniload's ``convert_mongo_objs`` MongoDB helper that
 deliberately does *not* import the Mongo source: ``mongodb/helpers.py`` imports the
 ``pymongo`` client classes (``MongoClient``/``Collection``/``Cursor``) at module top,
 which would couple this filesystem reader to the Mongo driver. ``bson`` itself ships

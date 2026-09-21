@@ -140,7 +140,7 @@ def materialize_remote_object(
         root.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(
-        prefix="omniload-staged-object-", dir=root
+        prefix="dlt-filesystem-staged-object-", dir=root
     ) as staging_dir:
         local_path = Path(staging_dir) / filename
         filesystem = _filesystem_for(remote)

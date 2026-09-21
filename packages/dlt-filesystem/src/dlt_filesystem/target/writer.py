@@ -366,7 +366,7 @@ def write_yaml(path: str, rows: list[dict]) -> None:
     except ImportError as e:
         raise MissingDecoderError(
             "Writing YAML needs the PyYAML package. "
-            "Install it with: pip install 'omniload[iterable]'"
+            "Install it with: pip install 'dlt-filesystem[iterable]'"
         ) from e
 
     with open(path, "wb") as handle:

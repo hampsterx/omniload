@@ -352,29 +352,28 @@ def _xml_eager_decode(data: bytes, options: dict) -> Iterator[Any]:
 # down through its API, and its YAML wrapper is eager and swallows parse errors, so
 # `dlt-filesystem` owns both decodes -- a safe lxml parse for XML, `yaml.safe_load_all` for YAML.
 # See `docs/supported-sources/filesystem.md`.
-# TODO: Adjust `pip_hint` values after breaking out into dedicated package.
 FORMAT_TO_ITERABLE: dict[str, IterableFormat] = {
     "cbor": IterableFormat(
         decoder_dist="cbor2",
-        pip_hint="omniload[iterable]",
+        pip_hint="dlt-filesystem[iterable]",
         eager_decoder=_cbor_eager_decode,
         normalizer_factory=_cbor_normalizer,
     ),
     "msgpack": IterableFormat(
         decoder_dist="msgpack",
-        pip_hint="omniload[iterable]",
+        pip_hint="dlt-filesystem[iterable]",
         class_path="iterable.datatypes.msgpack.MessagePackIterable",
         normalizer_factory=_msgpack_normalizer,
     ),
     "xml": IterableFormat(
         decoder_dist="lxml",
-        pip_hint="omniload[iterable]",
+        pip_hint="dlt-filesystem[iterable]",
         eager_decoder=_xml_eager_decode,
         # XML decodes to str / dict / list / None leaves, all dlt-safe, so no normalizer.
     ),
     "yaml": IterableFormat(
         decoder_dist="yaml",
-        pip_hint="omniload[iterable]",
+        pip_hint="dlt-filesystem[iterable]",
         eager_decoder=_yaml_eager_decode,
         normalizer_factory=_yaml_normalizer,
     ),

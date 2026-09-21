@@ -17,7 +17,7 @@ through the format-agnostic ``load_dlt_file`` helper and re-emits it as one clea
 at the requested path (dropping dlt's bookkeeping ``_dlt_*`` columns). A load dlt split
 across several files is read in full, in a stable filename order.
 
-``omniload.target.csv`` ``CsvDestination`` (the ``csv://`` scheme) is this class with
+A consumer's CSV-only destination (omniload's ``csv://`` scheme) is this class with
 ``pinned_output_format`` set to ``csv``; it contributes only that restriction and its own
 table-name parser.
 """

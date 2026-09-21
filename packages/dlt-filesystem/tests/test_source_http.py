@@ -29,6 +29,15 @@ import dlt
 import duckdb
 import pytest
 from fsspec.implementations.memory import MemoryFileSystem
+from http_server import (
+    AUTH_PASSWORD_ENCODED,
+    AUTH_USERNAME,
+    EVENT_COUNT,
+    HTTP_LAST_MODIFIED,
+    PEOPLE,
+    HttpFixture,
+    closed_port,
+)
 
 from dlt_filesystem.error import MissingConnectorOption
 from dlt_filesystem.source.fsspec.http import (
@@ -39,15 +48,6 @@ from dlt_filesystem.source.fsspec.http import (
 )
 from dlt_filesystem.source.lister import glob_files
 from dlt_filesystem.source.model import FilesystemReference
-from tests.dlt_filesystem.http_server import (
-    AUTH_PASSWORD_ENCODED,
-    AUTH_USERNAME,
-    EVENT_COUNT,
-    HTTP_LAST_MODIFIED,
-    PEOPLE,
-    HttpFixture,
-    closed_port,
-)
 
 #: The rows every document in the fixture root carries, in query order.
 EXPECTED = [("Alice", 30), ("Bob", 41), ("Charlie", 25)]

@@ -115,7 +115,7 @@ def infer_storage_options(
             drive, path = windows_path.groups()
             path = f"{drive}:{path}"
 
-    # Within omniload, we _want_ to parse, to create fewer anomalies.
+    # Here we _want_ to parse, to create fewer anomalies.
     # Specifically, the WebDAV connector needs it because it uses the
     # `http` protocol scheme.
     """

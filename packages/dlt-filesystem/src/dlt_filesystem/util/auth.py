@@ -20,7 +20,7 @@ def _first(params: dict[str, list[str]], key: str) -> Optional[str]:
 def s3_filesystem_kwargs(
     params: dict[str, list[str]], connector: str = "S3"
 ) -> dict[str, Any]:
-    """Translate omniload S3 URI parameters into ``s3fs`` arguments."""
+    """Translate S3 URI parameters into ``s3fs`` arguments."""
     access_key_id = _first(params, "access_key_id")
     if not access_key_id:
         raise MissingConnectorOption("access_key_id", connector)
@@ -48,7 +48,7 @@ def s3_filesystem_kwargs(
 def s3_arrow_filesystem_kwargs(
     params: dict[str, list[str]], connector: str = "S3"
 ) -> dict[str, Any]:
-    """Translate omniload S3 URI parameters into ``pyarrow.fs`` arguments."""
+    """Translate S3 URI parameters into ``pyarrow.fs`` arguments."""
     access_key_id = _first(params, "access_key_id")
     if not access_key_id:
         raise MissingConnectorOption("access_key_id", connector)
@@ -96,7 +96,7 @@ def s3_arrow_filesystem_kwargs(
 def gcs_filesystem_kwargs(
     params: dict[str, list[str]], inherited: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """Translate omniload GCS URI parameters into ``gcsfs`` arguments."""
+    """Translate GCS URI parameters into ``gcsfs`` arguments."""
     kwargs = dict(inherited or {})
     remaining = {key: list(values) for key, values in params.items()}
     credentials_path = _first(remaining, "credentials_path")

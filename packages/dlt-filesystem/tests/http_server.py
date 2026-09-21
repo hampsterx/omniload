@@ -2,8 +2,8 @@
 
 Docker-free and credential-free: a document root is generated into a temporary
 directory and served from a background thread on an ephemeral port, so the whole
-HTTP matrix runs in the unit lane. This is a different pattern from `gcs.py` in
-the same directory, which starts a testcontainer.
+HTTP matrix runs in the unit lane, rather than behind a testcontainer the way the
+credentialed transports are exercised.
 
 Six server behaviours are modelled, because discovery and the reader stack take
 different code paths through each:
@@ -243,7 +243,7 @@ class _Handler(BaseHTTPRequestHandler):
     """Serve the document root, recording what each request asked for."""
 
     protocol_version = "HTTP/1.1"
-    server_version = "omniload-test"
+    server_version = "dlt-filesystem-test"
     sys_version = ""
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
@@ -276,7 +276,7 @@ class _Handler(BaseHTTPRequestHandler):
                 401,
                 b"",
                 method=method,
-                extra=(("WWW-Authenticate", 'Basic realm="omniload"'),),
+                extra=(("WWW-Authenticate", 'Basic realm="dlt-filesystem"'),),
             )
             return
 

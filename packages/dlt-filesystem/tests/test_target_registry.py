@@ -22,7 +22,12 @@ from dlt_filesystem.target.registry import (
     writer_for_format,
 )
 
-DOCS = Path(__file__).resolve().parents[2] / "docs" / "supported-sources"
+# The pages stay in the consumer's repository until this package has its own docs
+# project, so a standalone checkout has nothing to compare against and says so.
+DOCS = Path(__file__).resolve().parents[3] / "docs" / "supported-sources"
+needs_docs = pytest.mark.skipif(
+    not DOCS.is_dir(), reason=f"documentation tree not present at {DOCS}"
+)
 
 
 def test_write_formats_is_derived_from_the_registrations():
@@ -87,7 +92,7 @@ def test_unregistered_format_raises():
 
 
 def test_every_write_format_is_also_a_read_format():
-    """A file omniload writes and cannot read back is a dead end, so the write set stays
+    """A file this package writes and cannot read back is a dead end, so the write set stays
     a subset of the read set. The reverse does not hold: several formats are read-only
     on purpose (see the registration comments)."""
     assert set(WRITE_FORMATS) <= set(FORMAT_TO_READER)
@@ -152,6 +157,7 @@ PROSE_CLAIMS = [
 ]
 
 
+@needs_docs
 def test_the_matrix_write_column_matches_the_registry():
     assert _matrix_write_formats() == set(ADVERTISED_WRITE_FORMATS)
 
@@ -159,6 +165,7 @@ def test_the_matrix_write_column_matches_the_registry():
 @pytest.mark.parametrize(
     ("page", "pattern"), PROSE_CLAIMS, ids=[c[0] for c in PROSE_CLAIMS]
 )
+@needs_docs
 def test_prose_claims_match_the_registry(page, pattern):
     """A page that enumerates the write set in prose must enumerate the current one."""
     text = (DOCS / page).read_text()
@@ -169,6 +176,7 @@ def test_prose_claims_match_the_registry(page, pattern):
     assert _prose_formats(match.group(1)) == set(ADVERTISED_WRITE_FORMATS)
 
 
+@needs_docs
 def test_the_pages_that_stopped_naming_the_write_set_have_not_regrown_it():
     """`yaml.md` and `xml.md` used to spell the write set out in passing, which is how
     both came to name a stale one. They link the matrix instead now. This is a tripwire

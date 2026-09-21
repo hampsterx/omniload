@@ -146,7 +146,7 @@ def test_write_yaml_without_pyyaml_names_the_install(tmp_path, monkeypatch):
     with pytest.raises(MissingDecoderError) as exc:
         writer_for_format("yaml")(str(tmp_path / "out.yaml"), ROWS)
 
-    assert "omniload[iterable]" in str(exc.value)
+    assert "dlt-filesystem[iterable]" in str(exc.value)
 
 
 def test_writers_emit_utf8_whatever_the_locale(tmp_path):

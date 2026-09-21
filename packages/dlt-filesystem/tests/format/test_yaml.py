@@ -7,7 +7,7 @@ top-level list, skipped ``None`` docs), extended-leaf normalization (``!!binary`
 raises rather than silently loading zero rows.
 
 YAML is decoded with ``yaml.safe_load_all`` directly (not iterabledata's eager, error-swallowing
-wrapper), so it needs only PyYAML, which ships in omniload's ``iterable`` extra.
+wrapper), so it needs only PyYAML, which ships in this package's ``iterable`` extra.
 """
 
 import base64
@@ -216,7 +216,7 @@ def test_missing_decoder_raises_typed_install_hint(tmp_path, monkeypatch):
         list(read_yaml(iter([FileItemStub(path)]), chunksize=10))  # ty: ignore[invalid-argument-type]
     message = str(exc.value)
     assert "yaml" in message
-    assert "omniload[iterable]" in message
+    assert "dlt-filesystem[iterable]" in message
 
 
 def test_yaml_advertised_only_when_decoder_installed(monkeypatch):

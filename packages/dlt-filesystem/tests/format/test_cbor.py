@@ -6,7 +6,7 @@ hint, the adversarial fixture (bytes, datetime, Decimal, a custom tag, nested) l
 and the documented single-top-level-value constraint holds (concatenated CBOR objects read
 only the first, a cbor2 limitation that can't be detected).
 
-Skipped when ``cbor2`` isn't installed (it ships in omniload's ``iterable`` extra). CBOR
+Skipped when ``cbor2`` isn't installed (it ships in this package's ``iterable`` extra). CBOR
 decodes with ``cbor2`` directly, so it does not need the ``iterable`` package itself.
 """
 
@@ -191,7 +191,7 @@ def test_missing_decoder_raises_typed_install_hint(tmp_path, monkeypatch):
         list(read_cbor(iter([FileItemStub(path)]), chunksize=10))  # ty: ignore[invalid-argument-type]
     message = str(exc.value)
     assert "cbor2" in message
-    assert "omniload[iterable]" in message
+    assert "dlt-filesystem[iterable]" in message
 
 
 def test_cbor_advertised_only_when_decoder_installed(monkeypatch):

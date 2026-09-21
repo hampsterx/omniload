@@ -36,7 +36,7 @@ class WebdavSource(FilesystemSource):
     ):
 
         # This adjustment is specific to WebDAV.
-        # omniload uses the `https+webdav://`, but fsspec uses `https://`.
+        # This package addresses WebDAV as `https+webdav://`; fsspec uses `https://`.
         uri = strip_protocol_suffix(uri, "dav", "webdav")
 
         # Bundle essential information to infer filesystem wrapper.

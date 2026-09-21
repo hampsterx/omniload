@@ -4,6 +4,7 @@ recursive-include doc *.md *.rst
 global-exclude *.db
 prune */.idea
 prune */__pycache__
+prune packages
 prune release
 prune tests
 prune tmp

@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Iterator
 
 import pytest
-
-from tests.dlt_filesystem.http_server import (
+from http_server import (
     AUTH_PASSWORD,
     AUTH_USERNAME,
     HttpFixture,

@@ -8,7 +8,7 @@ external-DTD / bad-encoding input is neutralized, never leaked or expanded.
 
 XML is parsed with a hardened ``lxml`` config directly (iterabledata's XML parser resolves
 entities and can't be locked down through its API), so it needs only ``lxml``, which ships in
-omniload's ``iterable`` extra.
+this package's ``iterable`` extra.
 """
 
 import importlib.util
@@ -427,7 +427,7 @@ def test_missing_decoder_raises_typed_install_hint(tmp_path, monkeypatch):
         list(read_xml(iter([FileItemStub(path)]), chunksize=10, tagname="item"))  # ty: ignore[invalid-argument-type]
     message = str(exc.value)
     assert "lxml" in message
-    assert "omniload[iterable]" in message
+    assert "dlt-filesystem[iterable]" in message
 
 
 def test_xml_advertised_only_when_decoder_installed(monkeypatch):

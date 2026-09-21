@@ -255,7 +255,7 @@ class FilesystemLocator:
         """
         Destructure reader or writer hints from URL fragment.
 
-        Let's use the omniload approach of decoding
+        Let's use this package's approach of decoding
         URL fragments, because it handles a few edge cases, also taking
         the URL path into consideration.
 

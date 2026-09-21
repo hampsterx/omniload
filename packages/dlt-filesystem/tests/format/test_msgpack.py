@@ -172,7 +172,7 @@ def test_missing_decoder_raises_typed_install_hint(tmp_path, monkeypatch):
         list(read_msgpack(iter([FileItemStub(path)]), chunksize=10))  # ty: ignore[invalid-argument-type]
     message = str(exc.value)
     assert "msgpack" in message
-    assert "omniload[iterable]" in message
+    assert "dlt-filesystem[iterable]" in message
 
 
 def test_msgpack_advertised_only_when_decoder_installed(monkeypatch):
