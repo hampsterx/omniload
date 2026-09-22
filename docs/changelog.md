@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/09/23 v0.18.0
+
 - **The filesystem and blob stack builds as its own distribution, `dlt-filesystem`.**
   It moves to `packages/dlt-filesystem/` and declares its own dependencies, so a dlt
   user can install the readers, the strict lister and the Arrow `readinto` shim without
