@@ -2,6 +2,15 @@
 
 ## in progress
 
+- **The filesystem and blob stack builds as its own distribution, `dlt-filesystem`.**
+  It moves to `packages/dlt-filesystem/` and declares its own dependencies, so a dlt
+  user can install the readers, the strict lister and the Arrow `readinto` shim without
+  omniload's dependency list: 136 distributions against 250. Nothing an existing install
+  line resolves to changes. `omniload`, `omniload[filesystem]`, `omniload[iterable]` and
+  `omniload[full]` each resolve to the same set as before, because the extras now forward
+  to the new distribution. The install hints a missing long-tail decoder prints name
+  `dlt-filesystem[iterable]`, which is the extra that supplies it.
+
 - **Tests: the memory-store fixtures keep to their own store.** Two test modules
   subclass `MemoryFileSystem` to hold their fixtures apart from fsspec's
   process-global store, but `store` is a class attribute the subclass inherits

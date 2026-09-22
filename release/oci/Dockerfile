@@ -27,9 +27,11 @@ RUN true \
 ARG BUILD=/usr/src
 COPY . ${BUILD}
 
-# Build package.
+# Build packages. Both of them: the image installs omniload, which depends on
+# `dlt-filesystem`, and resolving that from an index would need it published first.
 RUN pip install build
-RUN python -m build --wheel ${BUILD}
+RUN python -m build --wheel --outdir ${BUILD}/dist ${BUILD}
+RUN python -m build --wheel --outdir ${BUILD}/dist ${BUILD}/packages/dlt-filesystem
 
 
 FROM python:3.14-slim-trixie AS package
@@ -101,8 +103,8 @@ RUN chmod +x /usr/local/bin/selftest.sh
 RUN \
     --mount=type=cache,id=uv-${TARGETARCH}${TARGETVARIANT},target=/root/.cache/uv \
     true \
-    && WHEEL="$(ls /tmp/*.whl)" \
-    && uv pip install --upgrade "omniload[full] @ file://${WHEEL}"
+    && WHEEL="$(ls /tmp/omniload-*.whl)" \
+    && uv pip install --upgrade --find-links /tmp "omniload[full] @ file://${WHEEL}"
 
 # Ready.
 ENTRYPOINT ["omniload"]

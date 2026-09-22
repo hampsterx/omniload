@@ -4,14 +4,15 @@
 # dependencies = ["packaging"]
 # ///
 """
-Probe whether `dlt_filesystem` imports on the dependency set a standalone
-distribution would carry: `dlt` plus the `[filesystem]` extra's own members
-(with their transitive dependencies), and nothing else from omniload.
+Probe whether `dlt_filesystem` imports on the dependency set it actually
+declares: the `dlt-filesystem` project's own `[project.dependencies]` (with their
+transitive dependencies), and nothing else.
 
-A full `pip install 'omniload[filesystem]'` cannot answer this. An extra is
-additive to base dependencies, so that install always supplies the base list by
-accident and every undeclared import in the package goes green. This is the only
-check in the tree that would notice a new one before the extraction does.
+A `pip install omniload` cannot answer this. It resolves the package as a
+dependency alongside omniload's own base list, so that environment supplies the
+consumer's dependencies by accident and every undeclared import in the package
+goes green. This is the only check in the tree that would notice a new one before
+a user installing `dlt-filesystem` alone does.
 
 Two assertions, deliberately of different strength:
 
@@ -29,7 +30,7 @@ Two assertions, deliberately of different strength:
 Each assertion runs in its own ephemeral environment built by `uv run
 --isolated --no-config`, holding that dependency set and nothing else. Neither
 flag is belt and braces. A `dependency-metadata` entry in an ambient `uv.toml`
-can declare that some installed package requires the very name the extra omits,
+can declare that some installed package requires the very name the set omits,
 and `--isolated` does not stop uv reading configuration; `--no-config` stops a
 discovered file, and an explicit `UV_CONFIG_FILE` outranks it (measured on uv
 0.9.26). So the environment is refused rather than cleaned: any `UV_*` variable
@@ -52,7 +53,7 @@ read from. That last one is not tidiness: a same-size edit with an unchanged
 mtime is served from a stale `.pyc`, so the broken source is never read and the
 probe passes over it.
 
-Every member of the extra is validated as a requirement and then written out
+Every declared dependency is validated as a requirement and then written out
 verbatim. Validation is needed because a requirements file is a script rather
 than a list: a member reading `-r /elsewhere.txt` is an instruction uv honours,
 a bare `x.tar.gz` is a local archive it installs from the working directory, and
@@ -131,9 +132,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 PACKAGE = "dlt_filesystem"
 ENTRY_MODULE = "dlt_filesystem.source.core"
 
-#: The extra whose members, plus `dlt`, are what a standalone distribution
-#: would carry.
-EXTRA = "filesystem"
+#: The package's own project directory. Its `[project.dependencies]` *is* the
+#: standalone dependency set, so this reads the declaration a user installs
+#: rather than reconstructing it from the consumer's extras.
+PACKAGE_PROJECT = REPO_ROOT / "packages" / "dlt-filesystem"
 
 #: `module: dependency` a module may import at its own top level without that
 #: dependency belonging to the package's import surface. Keyed on the pair, not
@@ -208,9 +210,9 @@ BROKEN_TOKEN = b"PROBE-BROKEN\n"
 
 def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
     """
-    The `[filesystem]` extra's own members, plus `dlt` at the pin the base list
-    carries with its extras dropped: a standalone distribution depends on dlt
-    itself, not on omniload's choice of dlt extras.
+    The package's own `[project.dependencies]`, with any `dlt` extras dropped: a
+    standalone distribution depends on dlt itself, not on a consumer's choice of
+    dlt extras.
     """
     # Imported here rather than at module top so this file also runs as the
     # child below, under an interpreter that carries neither.
@@ -231,14 +233,13 @@ def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
 
     try:
         project = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]
-        members = project["optional-dependencies"][EXTRA]
         dependencies = project["dependencies"]
     except (OSError, tomllib.TOMLDecodeError, KeyError) as exc:
         # Not the package's failure: this program could not read the file it
         # derives the dependency set from, so it has no verdict to give.
         raise Failure(
-            f"could not read `[project.dependencies]` and the `[{EXTRA}]` extra "
-            f"from {pyproject}: {type(exc).__name__}: {exc}",
+            f"could not read `[project.dependencies]` from {pyproject}: "
+            f"{type(exc).__name__}: {exc}",
             status=2,
         ) from exc
 
@@ -250,7 +251,7 @@ def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
         Validation is what a requirements file needs, because it is a script
         rather than a list: a member reading `-r /elsewhere.txt` is an
         instruction uv honours, and a TOML table degrades to its keys under
-        `list()`. Both would build an environment wider than the extra declares.
+        `list()`. Both would build an environment wider than the project declares.
 
         Round-tripping through the parse is not, and was the wrong instinct.
         `str(Requirement(...))` re-quotes an environment marker, so a marker
@@ -271,15 +272,15 @@ def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
                 f"{where} does not parse: {value!r} ({exc})", status=2
             ) from exc
         if parsed.marker is not None:
-            # uv evaluates a root requirement with no extras selected, so
-            # `pymongo; extra != 'filesystem'` is inactive inside the extra and
-            # active once copied out of it, installing a distribution the extra
-            # never asked for. Detected by evaluating the marker under two
-            # different `extra` values rather than by looking for the word,
-            # which would also fire on `os_name == 'extra'`.
+            # uv evaluates a root requirement with no extras selected, so a
+            # marker reading `extra` means one thing where it is declared and
+            # another once resolved as a root requirement, installing a
+            # distribution nothing asked for. Detected by evaluating the marker
+            # under two different `extra` values rather than by looking for the
+            # word, which would also fire on `os_name == 'extra'`.
             try:
                 varies = parsed.marker.evaluate(
-                    {"extra": EXTRA}
+                    {"extra": "\x00one"}
                 ) != parsed.marker.evaluate({"extra": "\x00not-an-extra"})
             except Exception as exc:
                 raise Failure(
@@ -315,16 +316,6 @@ def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
             )
         return parsed
 
-    if not isinstance(members, list):
-        raise Failure(
-            f"the `[{EXTRA}]` extra in {pyproject} is a "
-            f"{type(members).__name__}, not a list",
-            status=2,
-        )
-    for member in members:
-        parse(member, f"`[{EXTRA}]` member")
-    requirements = list(members)
-
     if not isinstance(dependencies, list):
         raise Failure(
             f"`[project.dependencies]` in {pyproject} is a "
@@ -336,27 +327,30 @@ def read_requirement_set(pyproject: pathlib.Path) -> list[str]:
     # and taking one of them would test a version the declaration forbids.
     # Parsed rather than pattern-matched, so `DLT>=...`, `dlt @ url` and a
     # bracket inside a quoted marker are read the way a resolver reads them.
+    requirements = []
     dlt_pins = []
     for index, dep in enumerate(dependencies):
         parsed = parse(dep, f"`[project.dependencies]` entry {index}")
-        if canonicalize_name(parsed.name) == "dlt":
-            # Its extras are omniload's choice; a standalone distribution
-            # depends on dlt itself. Cut textually from the front of the
-            # original rather than re-serialising the parse, so any marker text
-            # reaches uv exactly as it was written. The name and its extras are
-            # the leading tokens and cannot contain a quoted string, so this
-            # cannot reach a marker.
-            without_extras = re.sub(r"^\s*([A-Za-z0-9._-]+)\s*\[[^\]]*\]", r"\1", dep)
-            # The cut is textual, so its result is checked rather than assumed:
-            # it has to still parse, still name dlt, and now carry no extras.
-            cut = parse(without_extras, f"`{dep}` with its extras dropped")
-            if cut.extras or canonicalize_name(cut.name) != "dlt":
-                raise Failure(
-                    f"dropping the extras from {dep!r} produced "
-                    f"{without_extras!r}, which is not the same requirement",
-                    status=2,
-                )
-            dlt_pins.append(without_extras)
+        if canonicalize_name(parsed.name) != "dlt":
+            requirements.append(dep)
+            continue
+        # A consumer's dlt extras are its own choice; a standalone distribution
+        # depends on dlt itself. Cut textually from the front of the original
+        # rather than re-serialising the parse, so any marker text reaches uv
+        # exactly as it was written. The name and its extras are the leading
+        # tokens and cannot contain a quoted string, so this cannot reach a
+        # marker.
+        without_extras = re.sub(r"^\s*([A-Za-z0-9._-]+)\s*\[[^\]]*\]", r"\1", dep)
+        # The cut is textual, so its result is checked rather than assumed: it
+        # has to still parse, still name dlt, and now carry no extras.
+        cut = parse(without_extras, f"`{dep}` with its extras dropped")
+        if cut.extras or canonicalize_name(cut.name) != "dlt":
+            raise Failure(
+                f"dropping the extras from {dep!r} produced "
+                f"{without_extras!r}, which is not the same requirement",
+                status=2,
+            )
+        dlt_pins.append(without_extras)
     if not dlt_pins:
         raise Failure("no `dlt` requirement found in project.dependencies", status=2)
     requirements.extend(dlt_pins)
@@ -396,7 +390,7 @@ def uv_prefix(python: str, requirements: pathlib.Path) -> list[str]:
     after it, rather than a venv this program creates and has to keep honest.
     It does not stop uv reading configuration, and a `dependency-metadata` entry
     there can declare that some installed package requires the very name the
-    extra omits, which is exactly the false green this program exists to
+    set omits, which is exactly the false green this program exists to
     prevent. Measured on uv 0.9.26: a discovered `uv.toml` reaches an
     `--isolated --no-project` resolution and `--no-config` stops it. An explicit
     `UV_CONFIG_FILE` outranks `--no-config`, which is why the environment is
@@ -676,9 +670,10 @@ def _child_sweep(evidence_fd: int, stage: str) -> int:
     if any(not is_allowed for _, _, is_allowed in failures):
         print()
         print("FAIL: modules in the package failed to import on the standalone")
-        print(f"      dependency set. Declare the requirement in the `[{EXTRA}]`")
-        print("      extra, make the import lazy, or exempt the exact")
-        print("      module/dependency pair in ALLOWED_MISSING with the reason it")
+        print("      dependency set. Declare the requirement in the package's")
+        print("      own `[project.dependencies]`, make the import lazy, or")
+        print("      exempt the exact module/dependency pair in ALLOWED_MISSING")
+        print("      with the reason it")
         print("      costs nothing at startup.")
         return 1
 
@@ -758,7 +753,7 @@ def probe(python: str, keep: bool) -> int:
     tmp = pathlib.Path(tempfile.mkdtemp(prefix="standalone-import-probe-"))
     try:
         print("==> reading the standalone dependency set from pyproject.toml")
-        requirements = read_requirement_set(REPO_ROOT / "pyproject.toml")
+        requirements = read_requirement_set(PACKAGE_PROJECT / "pyproject.toml")
         for requirement in requirements:
             print(f"    {requirement}")
         requirements_file = tmp / "requirements.txt"
@@ -770,7 +765,7 @@ def probe(python: str, keep: bool) -> int:
         # clean.
         stage = tmp / "stage"
         stage.mkdir()
-        source = REPO_ROOT / "src" / PACKAGE
+        source = PACKAGE_PROJECT / "src" / PACKAGE
         if not source.is_dir():
             # Staged blind, this would be a dangling symlink and every
             # assertion would blame the package for a moved directory.
