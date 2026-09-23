@@ -2,6 +2,15 @@
 
 ## in progress
 
+- **Filesystem: XLSX files, written.** The local `file://` destination writes
+  `.xlsx` workbooks with one worksheet named after the destination table, so a
+  later load finds the table by that name. A value an Excel cell would store as a
+  different value is refused, naming the column: an integer beyond 2^53, NaN or
+  infinity, a string past 32,767 characters, a date before March 1900. Excel's own
+  precision is documented rather than refused: floats keep 16 significant digits and
+  times read back to the millisecond. Nested values, binary and decimals are written
+  as text, as CSV writes them.
+
 ## 2026/09/23 v0.18.0
 
 - **The filesystem and blob stack builds as its own distribution, `dlt-filesystem`.**

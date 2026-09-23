@@ -41,12 +41,12 @@ URI does not include file extensions.
 | {ref}`orc`       | Apache ORC format                               | .orc                   | #orc          | ✅   | ✅    |
 | {ref}`parquet`   | Apache Parquet format                           | .parquet               | #parquet      | ✅   | ✅    |
 | {ref}`vortex`    | Vortex high-performance columnar data format    | .vortex                | #vortex       | ✅   | ✅    |
-| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx                  | #xlsx         | ✅   | ❌    |
+| {ref}`xlsx`      | Excel spreadsheet format                        | .xlsx                  | #xlsx         | ✅   | ✅    |
 | {ref}`xml`       | XML format                                      | .xml                   | #xml          | ✅   | ❌    |
 | {ref}`yaml`      | YAML format                                     | .yaml, .yml            | #yaml         | ✅   | ✅    |
 
 :::{note}
-Supported formats for write operations are currently CSV, Feather, JSON, JSONL, ORC, Parquet, Vortex, and YAML.
+Supported formats for write operations are currently CSV, Feather, JSON, JSONL, ORC, Parquet, Vortex, XLSX, and YAML.
 :::
 
 (filesystem-types)=
@@ -308,7 +308,7 @@ decoding.
 | Parquet             | `pyarrow`               | Batched reader.                    |
 | Vortex              | `vortex-data`           | Batched reader and writer.         |
 | XML                 | `lxml`                  | Whole-file parse, hardened.        |
-| XLSX                | `polars`                | Whole-file format.                 |
+| XLSX                | `polars` / `xlsxwriter` | Whole-file reader, row writer.     |
 | YAML                | `yaml`                  | Whole-file decode, safe.           |
 
 omniload uses the [iterabledata] package for reading or decoding a few formats
@@ -405,10 +405,10 @@ staging format rather than by the destination: see {ref}`file-load-types`. Under
 default staging a decimal reaches every writer as a string, so it is written as text even
 where the format could hold a decimal column.
 
-CSV is the one write format with neither a nested nor a binary column type. A struct,
-a list or a `bytes` value is written there the way the JSON writers write it: JSON
-text for a document, a base64 string for binary. So a nested source exports to CSV
-rather than failing, and the cell holds something a reader can parse.
+CSV and XLSX are the write formats with neither a nested nor a binary column type. A
+struct, a list or a `bytes` value is written there the way the JSON writers write it:
+JSON text for a document, a base64 string for binary. So a nested source exports to
+either rather than failing, and the cell holds something a reader can parse.
 
 (file-load-types)=
 
