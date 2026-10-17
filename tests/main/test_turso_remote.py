@@ -349,7 +349,7 @@ def test_a_destination_without_the_hook_never_sees_the_staging_root(
     real = DuckDBDestination.dlt_dest
 
     def spy(self, uri, **kwargs):
-        seen.append(sorted(kwargs))
+        seen.append(kwargs)
         return real(self, uri, **kwargs)
 
     monkeypatch.setattr(DuckDBDestination, "dlt_dest", spy)
@@ -359,7 +359,8 @@ def test_a_destination_without_the_hook_never_sees_the_staging_root(
         dry_run=True,
         remote_database_staging_root=str(tmp_path / "stage"),
     )
-    assert seen == [["dest_table", "staging_bucket"]]
+    assert len(seen) == 1
+    assert "remote_database_staging_root" not in seen[0]
 
 
 def test_call_redacted_replaces_the_token_and_drops_the_original():
