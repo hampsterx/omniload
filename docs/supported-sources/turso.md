@@ -98,7 +98,8 @@ default temporary pipelines directory, each run restores it from the server.
 - **`--full-refresh`**: refused, on a first load too. dlt would drop the tables, then
   fail on the staging database it `ATTACH`es. To reload from scratch, load into a new
   destination table: the pipeline, and with it any incremental cursor, is keyed on
-  the destination table, so a new one starts without state.
+  the destination table as spelled, so a new one starts without state. The two
+  spellings of one table, `people` and `main.people`, keep separate cursors.
 - **Load jobs**: they run one at a time, because Turso refuses a second concurrent
   writer instead of waiting for it. A load that writes many tables takes longer for
   it.
