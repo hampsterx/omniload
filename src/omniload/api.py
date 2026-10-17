@@ -164,6 +164,29 @@ def run_ingest(**kwargs) -> LoadInfo | None:
         )
 
 
+def _refuse_run_options(jr: LoadRequest, *, is_pipelines_dir_temp: bool) -> None:
+    """Raise the destination's refusal of a run option before a source is staged.
+
+    A remote source is downloaded before the run is assembled, so a refusal left
+    until then would cost that download for a run that cannot go ahead.
+    """
+    if is_pipelines_dir_temp and not jr.full_refresh:
+        return
+    from omniload.core.factory import SourceDestinationFactory
+
+    destination = SourceDestinationFactory(jr.source_uri, jr.dest_uri).get_destination()
+    if not is_pipelines_dir_temp:
+        refusal = getattr(
+            destination, "persistent_pipelines_dir_refusal", lambda uri: None
+        )(jr.dest_uri)
+        if refusal:
+            raise ValidationError(refusal)
+    if jr.full_refresh:
+        refusal = getattr(destination, "full_refresh_refusal", lambda: None)()
+        if refusal:
+            raise ValidationError(refusal)
+
+
 def _run_ingest_with_remote_database(
     jr: LoadRequest, pipelines_dir: str, *, is_pipelines_dir_temp: bool
 ) -> LoadInfo | None:
@@ -183,6 +206,7 @@ def _run_ingest_with_remote_database(
         stage_turso_replica,
     )
 
+    _refuse_run_options(jr, is_pipelines_dir_temp=is_pipelines_dir_temp)
     staging_root = jr.remote_database_staging_root or pipelines_dir
     if is_turso_uri(jr.source_uri):
         turso = parse_turso_uri(jr.source_uri)
@@ -410,18 +434,6 @@ def _assemble_and_run(
     source = factory.get_source()
     destination = factory.get_destination()
     on_destination(destination)
-
-    if not is_pipelines_dir_temp:
-        refusal = getattr(
-            destination, "persistent_pipelines_dir_refusal", lambda uri: None
-        )(jr.dest_uri)
-        if refusal:
-            raise ValidationError(refusal)
-
-    if jr.full_refresh:
-        refusal = getattr(destination, "full_refresh_refusal", lambda: None)()
-        if refusal:
-            raise ValidationError(refusal)
 
     produces_multiple_tables = getattr(
         source, "produces_multiple_tables", lambda uri, table: False

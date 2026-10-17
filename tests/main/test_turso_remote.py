@@ -93,6 +93,32 @@ def test_a_persistent_pipelines_dir_is_refused_for_a_remote_destination(
     assert _replica_dirs() == before
 
 
+@pytest.mark.parametrize(
+    "option",
+    [{"full_refresh": True}, {"pipelines_dir": "pipelines"}],
+    ids=["full_refresh", "pipelines_dir"],
+)
+def test_a_refused_option_does_not_stage_a_remote_source(tmp_path, monkeypatch, option):
+    """The refusal comes before the source's replica is bootstrapped."""
+    import omniload.util.turso as turso_util
+
+    def staged(*args, **kwargs):
+        raise AssertionError("the remote source was staged")
+
+    monkeypatch.setattr(turso_util, "stage_turso_replica", staged)
+    if "pipelines_dir" in option:
+        option = {"pipelines_dir": str(tmp_path / option["pipelines_dir"])}
+    with pytest.raises(ValidationError, match="'--(full-refresh|pipelines-dir)'"):
+        run_ingest(
+            source_uri=_unreachable(),
+            dest_uri=_unreachable(),
+            source_table="people",
+            dest_table="people",
+            progress="log",
+            **option,
+        )
+
+
 def test_a_persistent_pipelines_dir_is_fine_for_a_local_file(source_db, tmp_path):
     _to_remote(
         source_db,

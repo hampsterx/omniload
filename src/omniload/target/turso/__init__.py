@@ -163,13 +163,16 @@ class TursoDestination(GenericSqlDestination):
 
         dlt drops the resource's tables first, then opens the staging dataset to
         drop them there too, which goes through ``ATTACH``. Turso refuses that,
-        so the load fails with the tables already dropped.
+        so the load fails with the tables already dropped. A first load, with
+        nothing to drop, is refused all the same: knowing would take a connection.
+        ``replace`` is no substitute to suggest: it keeps an incremental cursor,
+        so it would truncate the table and reload only the rows past it.
         """
         return (
             "The 'turso' destination cannot run with '--full-refresh': dlt would drop "
             "the tables and then fail on the staging database it attaches, which "
-            "Turso does not support. To reload a table, use "
-            "'--incremental-strategy replace'."
+            "Turso does not support. To reload from scratch, load into a new "
+            "destination table or database, which starts with no pipeline state."
         )
 
     def persistent_pipelines_dir_refusal(self, uri: str) -> Optional[str]:
