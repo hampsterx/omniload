@@ -141,7 +141,10 @@ def test_append_and_replace_reach_the_server(server, tmp_path):
 
 
 def test_each_source_read_sees_what_the_server_holds_now(server, tmp_path):
-    """A replica kept from an earlier read would miss another writer's push."""
+    """A replica kept from an earlier read would miss another writer's push. Each
+    replica is a copy of the whole database, so none may outlive its run under an
+    explicit staging root either."""
+    stage = tmp_path / "stage"
     _write_server(
         server,
         [
@@ -158,6 +161,7 @@ def test_each_source_read_sees_what_the_server_holds_now(server, tmp_path):
             source_table="people",
             dest_table="out.people",
             progress="log",
+            remote_database_staging_root=str(stage),
         )
         con = duckdb.connect(str(wh))
         try:
@@ -170,6 +174,7 @@ def test_each_source_read_sees_what_the_server_holds_now(server, tmp_path):
     _write_server(server, ["INSERT INTO people VALUES (2, 'Bob')"])
     assert read() == PEOPLE
     assert _replica_dirs() == before
+    assert list(stage.iterdir()) == []
 
 
 def test_a_failed_load_pushes_nothing_and_removes_the_replica(
