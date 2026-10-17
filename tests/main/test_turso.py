@@ -96,6 +96,20 @@ def test_append_accumulates_and_replace_resets(tmp_path):
     assert _rows(dest) == PEOPLE
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_full_refresh_is_refused_and_keeps_the_table(tmp_path, dry_run):
+    """dlt would drop the table, then fail on the staging dataset's ATTACH."""
+    src, dest = tmp_path / "src.db", tmp_path / "app.db"
+    _make_sqlite(src)
+    _ingest(f"sqlite:///{src}", f"turso:///{dest}")
+
+    with pytest.raises(ValidationError, match="cannot run with '--full-refresh'"):
+        _ingest(
+            f"sqlite:///{src}", f"turso:///{dest}", full_refresh=True, dry_run=dry_run
+        )
+    assert _rows(dest) == PEOPLE
+
+
 def test_a_named_schema_other_than_main_is_refused(tmp_path):
     src = tmp_path / "src.db"
     _make_sqlite(src)
@@ -604,6 +618,23 @@ def test_a_load_that_writes_many_tables_at_once_succeeds(tmp_path, monkeypatch):
     conn = sqlite3.connect(str(dest))
     try:
         assert conn.execute("SELECT count(*) FROM wide").fetchone() == (500,)
+        assert conn.execute("SELECT count(*) FROM wide__list_19").fetchone() == (500,)
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("strategy", ["parallel", "table-sequential"])
+def test_a_configured_parallel_strategy_does_not_unlock_parallel_jobs(
+    tmp_path, monkeypatch, strategy
+):
+    """dlt's load configuration overrides the destination's sequential strategy;
+    the job cap must still hold."""
+    monkeypatch.setenv("LOAD__PARALLELISM_STRATEGY", strategy)
+    dest = tmp_path / "app.db"
+    _stub_source(monkeypatch, _wide_resource, owns_incrementality=True, honours=True)
+    _ingest("file+delta://placeholder", f"turso:///{dest}", dest_table="wide")
+    conn = sqlite3.connect(str(dest))
+    try:
         assert conn.execute("SELECT count(*) FROM wide__list_19").fetchone() == (500,)
     finally:
         conn.close()

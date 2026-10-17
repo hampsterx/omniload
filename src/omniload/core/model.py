@@ -66,6 +66,8 @@ class DestinationProtocol(Protocol):
     A destination whose state cannot be kept consistent with a persistent
     ``--pipelines-dir`` may define ``persistent_pipelines_dir_refusal(uri) ->
     str | None``; a returned reason refuses such a run before anything is loaded.
+    One that cannot drop and reload its tables may likewise define
+    ``full_refresh_refusal() -> str | None``, consulted for ``--full-refresh``.
 
     A destination that copies a remote database to local disk may define
     ``set_remote_database_staging_root(root: str | None) -> None``. The ingest API

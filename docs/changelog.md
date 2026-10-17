@@ -15,7 +15,7 @@
   writes to the `main` schema with `append` and `replace` only: a merge load into
   Turso deletes rows it should keep (tursodatabase/turso#6279), so `merge`,
   `delete+insert`, `scd2` and a source's own merge resources are refused before
-  anything is written.
+  anything is written, as is `--full-refresh`.
 
 ## 2026/09/27 v0.19.0
 

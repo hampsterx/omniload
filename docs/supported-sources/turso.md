@@ -95,15 +95,21 @@ default temporary pipelines directory, each run restores it from the server.
   database it `ATTACH`es, which Turso treats as experimental, and with that enabled
   Turso resolves the merge's database-qualified correlated subquery against the wrong
   table and deletes rows it should keep ([tursodatabase/turso#6279]).
+- **`--full-refresh`**: refused. dlt would drop the tables, then fail on the staging
+  database it `ATTACH`es. To reload a table, use `--incremental-strategy replace`.
+- **Load jobs**: they run one at a time, because Turso refuses a second concurrent
+  writer instead of waiting for it. A load that writes many tables takes longer for
+  it.
 - **Schema**: tables land in the `main` schema. Name the destination table as
   `<table>` or `main.<table>`.
 - **`--pipelines-dir`**: a remote destination cannot be combined with it. dlt saves
   the run's state before the push, so a failed push would leave a persistent
   pipelines directory ahead of the server.
 - **Database size**: every run downloads the whole remote database into its replica,
-  for a read of one table as for an append of one row. The replica goes to the system
-  temporary directory, or under `remote_database_staging_root` when the Python API
-  sets one.
+  for a read of one table as for an append of one row. The replica goes under
+  `remote_database_staging_root` when the Python API sets one. Otherwise a
+  destination's replica goes to the system temporary directory, and a source's to
+  the pipelines directory.
 - **A server that stops answering**: pyturso's sync requests have no timeout, so a
   run against a server that accepts the connection and never replies waits
   indefinitely.

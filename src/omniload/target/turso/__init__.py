@@ -119,7 +119,9 @@ class TursoDestination(GenericSqlDestination):
         # staging dataset, which is the same ATTACH. Load jobs run one at a time:
         # Turso refuses a second writer outright ("database is locked") instead of
         # waiting for the first, so parallel jobs fail a load that writes many
-        # tables. The name keeps dlt reading the `destination.sqlalchemy`
+        # tables. A configured `load.parallelism_strategy` overrides the
+        # sequential strategy, so the job cap holds it whatever the configuration
+        # says. The name keeps dlt reading the `destination.sqlalchemy`
         # configuration section, as the stock factory does.
         factory = turso_sqlalchemy(
             credentials=credentials,
@@ -127,6 +129,7 @@ class TursoDestination(GenericSqlDestination):
             supported_merge_strategies=[],
             supported_replace_strategies=["truncate-and-insert"],
             loader_parallelism_strategy="sequential",
+            max_parallel_load_jobs=1,
         )
         factory._creator = creator
         return factory
@@ -154,6 +157,20 @@ class TursoDestination(GenericSqlDestination):
         empty merge strategy list is the backstop for the rest.
         """
         return False
+
+    def full_refresh_refusal(self) -> Optional[str]:
+        """Refuse ``--full-refresh``, which would empty the table and then fail.
+
+        dlt drops the resource's tables first, then opens the staging dataset to
+        drop them there too, which goes through ``ATTACH``. Turso refuses that,
+        so the load fails with the tables already dropped.
+        """
+        return (
+            "The 'turso' destination cannot run with '--full-refresh': dlt would drop "
+            "the tables and then fail on the staging database it attaches, which "
+            "Turso does not support. To reload a table, use "
+            "'--incremental-strategy replace'."
+        )
 
     def persistent_pipelines_dir_refusal(self, uri: str) -> Optional[str]:
         """Refuse a persistent ``--pipelines-dir`` for a remote database.

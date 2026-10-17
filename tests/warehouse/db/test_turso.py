@@ -197,6 +197,61 @@ def test_a_failed_load_pushes_nothing_and_removes_the_replica(
     assert _replica_dirs() == before
 
 
+def test_a_load_step_failure_pushes_nothing(server, tmp_path, monkeypatch):
+    """The schema and a committed job sit in the replica when a later job fails, and
+    none of it may reach the server."""
+    from dlt.common.destination.exceptions import DestinationTerminalException
+    from dlt.destinations.impl.sqlalchemy.load_jobs import SqlalchemyJsonLInsertJob
+
+    @dlt.resource(name="wide", write_disposition="append")
+    def wide():
+        for i in range(10):
+            yield {"id": i, "list_0": [{"v": i}], "list_1": [{"v": i}]}
+
+    class _WideSource:
+        def handles_incrementality(self):
+            return True
+
+        def honours_run_disposition(self):
+            return True
+
+        def dlt_source(self, uri, table, **kwargs):
+            return wide()
+
+    calls = []
+    real_run = SqlalchemyJsonLInsertJob.run
+
+    def run(self):
+        calls.append(self)
+        if len(calls) == 2:
+            raise DestinationTerminalException("injected failure")
+        return real_run(self)
+
+    monkeypatch.setattr(SqlalchemyJsonLInsertJob, "run", run)
+    monkeypatch.setattr(
+        SourceDestinationFactory, "get_source", lambda self: _WideSource()
+    )
+    before = _replica_dirs()
+    with pytest.raises(Exception, match="injected failure"):
+        run_ingest(
+            source_uri="file+delta://placeholder",
+            dest_uri=_uri(server),
+            source_table="wide",
+            dest_table="wide",
+            progress="log",
+        )
+    path = os.path.join(tempfile.mkdtemp(prefix="turso-check-"), "check.db")
+    connection = turso_sync.connect(path, remote_url=server)
+    try:
+        tables = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'wide%'"
+        ).fetchall()
+    finally:
+        connection.close()
+    assert tables == []
+    assert _replica_dirs() == before
+
+
 def _fail_push(monkeypatch):
     def push(self):
         # Client errors can quote the request, so the injected one carries the token.

@@ -418,6 +418,11 @@ def _assemble_and_run(
         if refusal:
             raise ValidationError(refusal)
 
+    if jr.full_refresh:
+        refusal = getattr(destination, "full_refresh_refusal", lambda: None)()
+        if refusal:
+            raise ValidationError(refusal)
+
     produces_multiple_tables = getattr(
         source, "produces_multiple_tables", lambda uri, table: False
     )(jr.source_uri, source_table)
@@ -939,8 +944,8 @@ def _assemble_and_run(
                 f"merge write disposition, which resource '{merging}' would use. "
                 + (
                     f"The '{factory.source_scheme}' source sets that disposition "
-                    "itself and does not take '--incremental-strategy', so it "
-                    "cannot load into this destination."
+                    "itself and does not take '--incremental-strategy', so this "
+                    "table cannot load into this destination."
                     if owns_disposition
                     else "Use '--incremental-strategy append' or 'replace'."
                 )
