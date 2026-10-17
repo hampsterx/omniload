@@ -98,19 +98,28 @@ def test_a_persistent_pipelines_dir_is_refused_for_a_remote_destination(
     [{"full_refresh": True}, {"pipelines_dir": "pipelines"}],
     ids=["full_refresh", "pipelines_dir"],
 )
-def test_a_refused_option_does_not_stage_a_remote_source(tmp_path, monkeypatch, option):
-    """The refusal comes before the source's replica is bootstrapped."""
+@pytest.mark.parametrize(
+    "source_uri",
+    [_unreachable(), "s3://bucket/path/events.duckdb"],
+    ids=["turso", "remote_duckdb"],
+)
+def test_a_refused_option_does_not_stage_a_remote_source(
+    tmp_path, monkeypatch, option, source_uri
+):
+    """The refusal comes before a remote source is bootstrapped or downloaded."""
+    import omniload.source.sql_database.remote as remote_database
     import omniload.util.turso as turso_util
 
     def staged(*args, **kwargs):
         raise AssertionError("the remote source was staged")
 
     monkeypatch.setattr(turso_util, "stage_turso_replica", staged)
+    monkeypatch.setattr(remote_database, "stage_remote_database", staged)
     if "pipelines_dir" in option:
         option = {"pipelines_dir": str(tmp_path / option["pipelines_dir"])}
     with pytest.raises(ValidationError, match="'--(full-refresh|pipelines-dir)'"):
         run_ingest(
-            source_uri=_unreachable(),
+            source_uri=source_uri,
             dest_uri=_unreachable(),
             source_table="people",
             dest_table="people",

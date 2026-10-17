@@ -97,8 +97,8 @@ default temporary pipelines directory, each run restores it from the server.
   table and deletes rows it should keep ([tursodatabase/turso#6279]).
 - **`--full-refresh`**: refused, on a first load too. dlt would drop the tables, then
   fail on the staging database it `ATTACH`es. To reload from scratch, load into a new
-  destination table or database: the pipeline state lives beside the data, so either
-  starts without a cursor.
+  destination table: the pipeline, and with it any incremental cursor, is keyed on
+  the destination table, so a new one starts without state.
 - **Load jobs**: they run one at a time, because Turso refuses a second concurrent
   writer instead of waiting for it. A load that writes many tables takes longer for
   it.

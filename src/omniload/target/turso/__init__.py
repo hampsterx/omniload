@@ -172,7 +172,7 @@ class TursoDestination(GenericSqlDestination):
             "The 'turso' destination cannot run with '--full-refresh': dlt would drop "
             "the tables and then fail on the staging database it attaches, which "
             "Turso does not support. To reload from scratch, load into a new "
-            "destination table or database, which starts with no pipeline state."
+            "destination table, which starts with no pipeline state."
         )
 
     def persistent_pipelines_dir_refusal(self, uri: str) -> Optional[str]:
