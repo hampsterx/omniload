@@ -506,7 +506,10 @@ def _assemble_and_run(
         progressInstance = SpinnerCollector()
 
     dlt_dest = destination.dlt_dest(
-        uri=jr.dest_uri, dest_table=dest_table, staging_bucket=jr.staging_bucket
+        uri=jr.dest_uri,
+        dest_table=dest_table,
+        staging_bucket=jr.staging_bucket,
+        remote_database_staging_root=jr.remote_database_staging_root,
     )
     validate_loader_file_format(dlt_dest, loader_file_format)
     if dest_table_was_defaulted:
@@ -922,10 +925,23 @@ def _assemble_and_run(
     if not supports_merge:
         merging = _first_merging_resource(dlt_source, write_disposition)
         if merging is not None:
+            # A source that owns its incrementality without honouring a run-level
+            # disposition has had `--incremental-strategy` discarded above, so
+            # suggesting one would not help.
+            owns_disposition = (
+                source.handles_incrementality()
+                and not getattr(source, "honours_run_disposition", lambda: False)()
+            )
             raise ValidationError(
                 f"The '{factory.destination_scheme}' destination cannot load with a "
                 f"merge write disposition, which resource '{merging}' would use. "
-                "Use '--incremental-strategy append' or 'replace'."
+                + (
+                    f"The '{factory.source_scheme}' source sets that disposition "
+                    "itself and does not take '--incremental-strategy', so it "
+                    "cannot load into this destination."
+                    if owns_disposition
+                    else "Use '--incremental-strategy append' or 'replace'."
+                )
             )
 
     start_time = datetime.now()

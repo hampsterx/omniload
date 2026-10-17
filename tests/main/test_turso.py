@@ -213,10 +213,13 @@ def test_explicit_append_does_not_rescue_a_source_that_ignores_it(
     (Adjust's shape) has the explicit append discarded, so its merge resource stands."""
     dest = tmp_path / "app.db"
     _stub_source(monkeypatch, _merge_resource, owns_incrementality=True)
-    with pytest.raises(ValidationError, match=MERGE_REFUSED):
+    with pytest.raises(ValidationError, match=MERGE_REFUSED) as exc_info:
         _ingest(
             "adjust://placeholder", f"turso:///{dest}", incremental_strategy="append"
         )
+    # The advice must not be the strategy the source just discarded.
+    assert "does not take '--incremental-strategy'" in str(exc_info.value)
+    assert "Use '--incremental-strategy append'" not in str(exc_info.value)
     assert _tables(dest) == []
 
 
@@ -577,3 +580,30 @@ def test_close_is_harmless_before_use_and_when_repeated():
     destination = TursoDestination()
     destination.close()
     destination.close()
+
+
+def _wide_resource(children: int = 20, rows: int = 500):
+    """One resource whose nested lists make ``children`` tables beside its own, the
+    shape of nested JSON from a document store or an API."""
+
+    @dlt.resource(name="wide", write_disposition="append")
+    def wide():
+        for i in range(rows):
+            yield {"id": i, **{f"list_{c}": [{"v": i}] for c in range(children)}}
+
+    return wide()
+
+
+def test_a_load_that_writes_many_tables_at_once_succeeds(tmp_path, monkeypatch):
+    """Turso refuses a second concurrent writer instead of waiting, so dlt's parallel
+    load jobs would fail this load on "database is locked"; the destination loads
+    one job at a time."""
+    dest = tmp_path / "app.db"
+    _stub_source(monkeypatch, _wide_resource, owns_incrementality=True, honours=True)
+    _ingest("file+delta://placeholder", f"turso:///{dest}", dest_table="wide")
+    conn = sqlite3.connect(str(dest))
+    try:
+        assert conn.execute("SELECT count(*) FROM wide").fetchone() == (500,)
+        assert conn.execute("SELECT count(*) FROM wide__list_19").fetchone() == (500,)
+    finally:
+        conn.close()

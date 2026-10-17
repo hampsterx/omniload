@@ -101,7 +101,12 @@ default temporary pipelines directory, each run restores it from the server.
   the run's state before the push, so a failed push would leave a persistent
   pipelines directory ahead of the server.
 - **Database size**: every run downloads the whole remote database into its replica,
-  for a read of one table as for an append of one row.
+  for a read of one table as for an append of one row. The replica goes to the system
+  temporary directory, or under `remote_database_staging_root` when the Python API
+  sets one.
+- **A server that stops answering**: pyturso's sync requests have no timeout, so a
+  run against a server that accepts the connection and never replies waits
+  indefinitely.
 :::
 
 [pyturso]: https://pypi.org/project/pyturso/

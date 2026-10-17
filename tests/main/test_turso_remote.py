@@ -303,3 +303,51 @@ def test_configured_engine_options_are_kept_beside_the_creator(monkeypatch, key)
         assert credentials.engine_kwargs["creator"] is factory._creator
     finally:
         destination.close()
+
+
+def test_the_destination_replica_goes_under_the_staging_root(tmp_path):
+    from omniload.target.turso import TursoDestination
+
+    stage = tmp_path / "stage" / "here"
+    destination = TursoDestination()
+    destination.dlt_dest(_unreachable(), remote_database_staging_root=str(stage))
+    replicas = list(stage.glob("turso-replica-*"))
+    assert len(replicas) == 1
+    destination.close()
+    assert list(stage.iterdir()) == []
+
+
+def test_run_ingest_hands_the_staging_root_to_the_destination(
+    source_db, tmp_path, monkeypatch
+):
+    from omniload.target import turso as turso_target
+
+    seen = []
+    real = turso_target.TursoDestination.dlt_dest
+
+    def spy(self, uri, **kwargs):
+        seen.append(kwargs.get("remote_database_staging_root"))
+        return real(self, uri, **kwargs)
+
+    monkeypatch.setattr(turso_target.TursoDestination, "dlt_dest", spy)
+    stage = tmp_path / "stage"
+    _to_remote(source_db, dry_run=True, remote_database_staging_root=str(stage))
+    assert seen == [str(stage)]
+    assert list(stage.iterdir()) == []
+
+
+def test_call_redacted_replaces_the_token_and_drops_the_original():
+    from omniload.util.turso import RemoteTurso, call_redacted
+
+    target = RemoteTurso(url="https://db.example", auth_token=SENTINEL)
+
+    def leak():
+        raise OSError(f"reset while sending Authorization: Bearer {SENTINEL}")
+
+    with pytest.raises(TursoSyncError) as exc_info:
+        call_redacted(target, "Connecting to", leak)
+    assert SENTINEL not in str(exc_info.value)
+    assert "Bearer ***" in str(exc_info.value)
+    assert "https://db.example" in str(exc_info.value)
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None

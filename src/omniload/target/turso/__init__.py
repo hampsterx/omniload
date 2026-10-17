@@ -69,7 +69,14 @@ class TursoDestination(GenericSqlDestination):
         creator = None
         if isinstance(target, RemoteTurso):
             self._remote = target
-            self._replica_dir = Path(tempfile.mkdtemp(prefix="turso-replica-"))
+            # Beside the source's replica when the caller names a staging root:
+            # each one is a copy of the whole remote database.
+            staging_root = kwargs.get("remote_database_staging_root")
+            if staging_root:
+                Path(staging_root).mkdir(parents=True, exist_ok=True)
+            self._replica_dir = Path(
+                tempfile.mkdtemp(prefix="turso-replica-", dir=staging_root or None)
+            )
             replica = str(self._replica_dir / "replica.db")
             # The URL names the replica and the server, never the token. Every
             # connection dlt opens, load workers included, goes through
@@ -104,13 +111,17 @@ class TursoDestination(GenericSqlDestination):
         # extraction: table variants, nested tables with their own hints, and
         # hints a resource yields with its data.
         # Replace only by truncating in place: dlt's other strategy goes through a
-        # staging dataset, which is the same ATTACH. The name keeps dlt reading the
-        # `destination.sqlalchemy` configuration section, as the stock factory does.
+        # staging dataset, which is the same ATTACH. Load jobs run one at a time:
+        # Turso refuses a second writer outright ("database is locked") instead of
+        # waiting for the first, so parallel jobs fail a load that writes many
+        # tables. The name keeps dlt reading the `destination.sqlalchemy`
+        # configuration section, as the stock factory does.
         factory = turso_sqlalchemy(
             credentials=credentials,
             destination_name="sqlalchemy",
             supported_merge_strategies=[],
             supported_replace_strategies=["truncate-and-insert"],
+            loader_parallelism_strategy="sequential",
         )
         factory._creator = creator
         return factory

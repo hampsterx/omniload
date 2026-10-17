@@ -334,6 +334,49 @@ def test_configured_engine_options_do_not_bypass_the_connection_creator(
     assert set(load_connections) == {SENTINEL}
 
 
+def test_a_load_that_writes_many_tables_reaches_the_server(
+    server, tmp_path, monkeypatch
+):
+    """A load writing many tables at once reaches the server whole. The concurrent
+    writer lock it would otherwise hit is pinned by the local-file test in
+    tests/main/test_turso.py; against a sync replica it does not reproduce reliably."""
+
+    @dlt.resource(name="wide", write_disposition="append")
+    def wide():
+        for i in range(2000):
+            yield {"id": i, **{f"list_{c}": [{"v": i}] for c in range(20)}}
+
+    class _WideSource:
+        def handles_incrementality(self):
+            return True
+
+        def honours_run_disposition(self):
+            return True
+
+        def dlt_source(self, uri, table, **kwargs):
+            return wide()
+
+    monkeypatch.setattr(
+        SourceDestinationFactory, "get_source", lambda self: _WideSource()
+    )
+    run_ingest(
+        source_uri="file+delta://placeholder",
+        dest_uri=_uri(server),
+        source_table="wide",
+        dest_table="wide",
+        progress="log",
+    )
+    path = os.path.join(tempfile.mkdtemp(prefix="turso-check-"), "check.db")
+    connection = turso_sync.connect(path, remote_url=server)
+    try:
+        assert connection.execute("SELECT count(*) FROM wide").fetchone() == (2000,)
+        assert connection.execute("SELECT count(*) FROM wide__list_19").fetchone() == (
+            2000,
+        )
+    finally:
+        connection.close()
+
+
 def test_turso_cloud_round_trip(tmp_path):
     url = os.environ.get("OMNILOAD_TEST_TURSO_URL")
     token = os.environ.get("OMNILOAD_TEST_TURSO_AUTH_TOKEN")
@@ -368,7 +411,8 @@ def test_turso_cloud_round_trip(tmp_path):
             con.close()
         assert rows == PEOPLE
     finally:
-        # Each run writes a table of its own; drop it so the database stays empty.
+        # Each run writes a table of its own; drop it. dlt's own state tables
+        # (`_dlt_loads` and the rest) are shared by every run and stay.
         path = os.path.join(tempfile.mkdtemp(prefix="turso-cleanup-"), "cleanup.db")
         connection = turso_sync.connect(path, remote_url=url, auth_token=token)
         try:
