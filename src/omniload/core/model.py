@@ -52,6 +52,20 @@ class DestinationProtocol(Protocol):
     Destinations that only represent one table may optionally define
     ``supports_multiple_tables() -> bool`` and return ``False``. The ingest API
     treats an absent method as support for dlt's normal multi-table dispatch.
+
+    A destination that cannot load with the ``merge`` write disposition may
+    define ``supports_merge() -> bool`` and return ``False``; the ingest API then
+    refuses a run whose effective disposition merges, before loading. An absent
+    method means merge is supported.
+
+    A destination holding run-scoped resources from ``dlt_dest()`` on may define
+    ``close() -> None``. The ingest API calls it on every exit once the
+    destination exists, including a failure inside ``dlt_dest()`` and a dry run,
+    so it must be idempotent and safe before ``dlt_dest()`` has run.
+
+    A destination whose state cannot be kept consistent with a persistent
+    ``--pipelines-dir`` may define ``persistent_pipelines_dir_refusal(uri) ->
+    str | None``; a returned reason refuses such a run before anything is loaded.
     """
 
     def dlt_dest(self, uri: str, **kwargs) -> "Destination":

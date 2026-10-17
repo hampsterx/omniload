@@ -50,20 +50,23 @@ class SqlSourceRouter:
         """Build a dlt SQL resource after normalizing supported SQL URI variants."""
         table_fields = TableName(catalog=None, schema="custom", table="custom")
         scheme = urlparse(uri).scheme
+        # `sqlite+<driver>` (e.g. pyturso's `sqlite+turso`) is still a SQLite file,
+        # whose only schema without an ATTACH is `main`.
+        is_sqlite = scheme.split("+", 1)[0] == "sqlite"
         if not table:
             # Empty table options remain temporarily valid for pipeline elements that
             # do not name a table. SQL reflection will report the missing table as it
             # did before table capabilities were introduced.
             table_fields = TableName(
                 catalog=None,
-                schema="main" if scheme == "sqlite" else None,
+                schema="main" if is_sqlite else None,
                 table="",
             )
         elif not table.startswith("query:"):
             table_fields = SOURCE_CAPABILITIES[scheme].parse(
-                table, Defaults(schema="main") if scheme == "sqlite" else None
+                table, Defaults(schema="main") if is_sqlite else None
             )
-            if scheme == "sqlite":
+            if is_sqlite:
                 table_fields = TableName(
                     catalog=None,
                     schema="main",

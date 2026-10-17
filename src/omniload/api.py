@@ -104,6 +104,37 @@ def _reject_unconsumed_incremental_key(
         )
 
 
+def _is_merge(disposition) -> bool:
+    """Return whether a static write disposition, string or dict, is a merge."""
+    if isinstance(disposition, dict):
+        return disposition.get("disposition") == "merge"
+    return disposition == "merge"
+
+
+def _first_merging_resource(dlt_source, run_disposition) -> str | None:
+    """Return the name of the first selected resource that would load with merge.
+
+    This is the disposition dlt applies, not the one omniload was asked for: a
+    run-level disposition overrides every resource's hint (dlt applies it with
+    ``apply_hints``), and without one each resource keeps its own, which sources
+    that manage their incrementality set themselves. Merge is the string
+    ``"merge"`` or a dict whose ``disposition`` is ``"merge"`` (scd2's form). A
+    callable hint is resolved per data item, so nothing here can show it does
+    not merge, and it counts as merging.
+    """
+    import omniload.core.resource as resource
+
+    found: list[str] = []
+
+    def check(res) -> None:
+        disposition = run_disposition or getattr(res, "write_disposition", None)
+        if callable(disposition) or _is_merge(disposition):
+            found.append(getattr(res, "name", repr(res)))
+
+    resource.for_each(dlt_source, check)
+    return found[0] if found else None
+
+
 def run_ingest(**kwargs) -> LoadInfo | None:
     """Load data from ``source_uri`` into ``dest_uri`` and return the dlt ``LoadInfo``.
 
@@ -138,12 +169,45 @@ def _run_ingest_with_remote_database(
 ) -> LoadInfo | None:
     """Stage a remote SQLite/DuckDB source for the complete pipeline lifetime."""
     import dataclasses
+    from pathlib import Path
 
     from omniload.source.sql_database.remote import (
         dry_run_database_uri,
         parse_remote_database_uri,
         stage_remote_database,
     )
+    from omniload.util.turso import (
+        RemoteTurso,
+        is_turso_uri,
+        parse_turso_uri,
+        stage_turso_replica,
+    )
+
+    staging_root = jr.remote_database_staging_root or pipelines_dir
+    if is_turso_uri(jr.source_uri):
+        turso = parse_turso_uri(jr.source_uri)
+        if not isinstance(turso, RemoteTurso):
+            # A local Turso file is read in place through pyturso's SQLAlchemy
+            # dialect, so the SQL source sees it as the `sqlite+turso` URI it is.
+            jr = dataclasses.replace(jr, source_uri=turso.url)
+        elif jr.dry_run:
+            # Validate the SQL source the real run uses, without connecting.
+            return _run_ingest(
+                dataclasses.replace(
+                    jr, source_uri=f"sqlite+turso:///{Path(staging_root, 'dry_run.db')}"
+                ),
+                pipelines_dir,
+                is_pipelines_dir_temp=is_pipelines_dir_temp,
+            )
+        else:
+            # A remote database is bootstrapped into a run-scoped replica, which is
+            # then read as a local file. The token stays with the bootstrap.
+            with stage_turso_replica(turso, staging_root=staging_root) as replica_uri:
+                return _run_ingest(
+                    dataclasses.replace(jr, source_uri=replica_uri),
+                    pipelines_dir,
+                    is_pipelines_dir_temp=is_pipelines_dir_temp,
+                )
 
     remote_database = parse_remote_database_uri(jr.source_uri, jr.source_table or "")
     if remote_database is None:
@@ -159,7 +223,6 @@ def _run_ingest_with_remote_database(
             is_pipelines_dir_temp=is_pipelines_dir_temp,
         )
 
-    staging_root = jr.remote_database_staging_root or pipelines_dir
     with stage_remote_database(
         remote_database, staging_root=staging_root
     ) as staged_source_uri:
@@ -173,6 +236,43 @@ def _run_ingest_with_remote_database(
 
 def _run_ingest(
     jr: LoadRequest, pipelines_dir: str, *, is_pipelines_dir_temp: bool
+) -> LoadInfo | None:
+    """Run the load, then close the destination on every exit once it exists.
+
+    A destination may hold run-scoped resources from ``dlt_dest()`` on (a local
+    replica of a remote database, say). It releases them in an optional
+    ``close()``, which runs here whether the run loads, stops at ``--dry-run`` or
+    fails, including inside ``dlt_dest()`` itself. Destinations without one have
+    nothing to release.
+    """
+    destinations: list = []
+    try:
+        result = _assemble_and_run(
+            jr,
+            pipelines_dir,
+            is_pipelines_dir_temp=is_pipelines_dir_temp,
+            on_destination=destinations.append,
+        )
+    except BaseException:
+        # The run's own error is the one to report; a close() failing on top of it
+        # is logged rather than allowed to replace it.
+        for destination in destinations:
+            try:
+                getattr(destination, "close", lambda: None)()
+            except Exception:
+                logger.exception("Closing the destination failed after a failed run")
+        raise
+    for destination in destinations:
+        getattr(destination, "close", lambda: None)()
+    return result
+
+
+def _assemble_and_run(
+    jr: LoadRequest,
+    pipelines_dir: str,
+    *,
+    is_pipelines_dir_temp: bool,
+    on_destination,
 ) -> LoadInfo | None:
     import hashlib
     import time
@@ -309,6 +409,14 @@ def _run_ingest(
 
     source = factory.get_source()
     destination = factory.get_destination()
+    on_destination(destination)
+
+    if not is_pipelines_dir_temp:
+        refusal = getattr(
+            destination, "persistent_pipelines_dir_refusal", lambda uri: None
+        )(jr.dest_uri)
+        if refusal:
+            raise ValidationError(refusal)
 
     produces_multiple_tables = getattr(
         source, "produces_multiple_tables", lambda uri, table: False
@@ -630,6 +738,37 @@ def _run_ingest(
                 )
             data_item_format = "arrow"
 
+    write_disposition: str | dict[str, str] | None = None
+    if runs_scd2:
+        write_disposition = {"disposition": "merge", "strategy": "scd2"}
+    elif incremental_strategy != IncrementalStrategy.none:
+        write_disposition = incremental_strategy.value
+
+    # The influxdb source merges on its primary key, whatever the strategy says.
+    strategy_merges = _is_merge(write_disposition)
+    primary_key_merges = factory.source_scheme == "influxdb" and bool(jr.primary_key)
+    if primary_key_merges:
+        write_disposition = "merge"
+
+    supports_merge = getattr(destination, "supports_merge", lambda: True)()
+    if not supports_merge and _is_merge(write_disposition):
+        # Known from the request alone, so `--dry-run` reports it too. Dispositions a
+        # source sets on its own resources are checked once they exist, below.
+        causes, fixes = [], []
+        if strategy_merges:
+            causes.append("the requested incremental strategy uses")
+            fixes.append("use '--incremental-strategy append' or 'replace'")
+        if primary_key_merges:
+            causes.append(
+                f"'--primary-key' selects for the '{factory.source_scheme}' source"
+            )
+            fixes.append("omit '--primary-key'")
+        raise ValidationError(
+            f"The '{factory.destination_scheme}' destination cannot load with a merge "
+            f"write disposition, which {' and '.join(causes)}. To load, "
+            f"{' and '.join(fixes)}."
+        )
+
     if jr.dry_run:
         logger.info("Skipping data transfer, because `--dry-run` was selected.")
         return None
@@ -780,15 +919,14 @@ def _run_ingest(
         ):
             loader_file_format = None
 
-    write_disposition: str | dict[str, str] | None = None
-    if runs_scd2:
-        write_disposition = {"disposition": "merge", "strategy": "scd2"}
-    elif incremental_strategy != IncrementalStrategy.none:
-        write_disposition = incremental_strategy.value
-
-    if factory.source_scheme == "influxdb":
-        if jr.primary_key:
-            write_disposition = "merge"
+    if not supports_merge:
+        merging = _first_merging_resource(dlt_source, write_disposition)
+        if merging is not None:
+            raise ValidationError(
+                f"The '{factory.destination_scheme}' destination cannot load with a "
+                f"merge write disposition, which resource '{merging}' would use. "
+                "Use '--incremental-strategy append' or 'replace'."
+            )
 
     start_time = datetime.now()
 

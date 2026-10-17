@@ -85,6 +85,27 @@ class SqlSourceTest(unittest.TestCase):
         self.assertEqual(captured["schema"], "main")
         self.assertEqual(captured["table"], "my.table")
 
+    def test_sqlite_driver_variant_parses_tables_like_sqlite(self):
+        # `sqlite+turso` is still one SQLite file: an unqualified table, a
+        # qualified one and an empty table option all resolve to `main`.
+        for table, expected in (
+            ("people", "people"),
+            ("main.people", "people"),
+            ("[other].[my.table]", "my.table"),
+            ("", ""),
+        ):
+            captured: dict = {}
+
+            def sql_table(captured=captured, **kwargs):
+                captured.update(kwargs)
+                return dlt.resource()
+
+            source = SqlSourceRouter(table_builder=sql_table)
+            source.dlt_source("sqlite+turso:///warehouse.db", table)
+
+            self.assertEqual(captured["schema"], "main", table)
+            self.assertEqual(captured["table"], expected, table)
+
     def test_spanner_accepts_only_an_unqualified_table_name(self):
         captured = {}
 
