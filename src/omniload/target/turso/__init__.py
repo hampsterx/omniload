@@ -61,6 +61,10 @@ class TursoDestination(GenericSqlDestination):
     def __init__(self) -> None:
         self._remote: Optional[RemoteTurso] = None
         self._replica_dir: Optional[Path] = None
+        self._staging_root: Optional[str] = None
+
+    def set_remote_database_staging_root(self, root: Optional[str]) -> None:
+        self._staging_root = root
 
     def dlt_dest(self, uri: str, **kwargs):
         from omniload.target.turso.client import turso_sqlalchemy
@@ -71,11 +75,12 @@ class TursoDestination(GenericSqlDestination):
             self._remote = target
             # Beside the source's replica when the caller names a staging root:
             # each one is a copy of the whole remote database.
-            staging_root = kwargs.get("remote_database_staging_root")
-            if staging_root:
-                Path(staging_root).mkdir(parents=True, exist_ok=True)
+            if self._staging_root:
+                Path(self._staging_root).mkdir(parents=True, exist_ok=True)
             self._replica_dir = Path(
-                tempfile.mkdtemp(prefix="turso-replica-", dir=staging_root or None)
+                tempfile.mkdtemp(
+                    prefix="turso-replica-", dir=self._staging_root or None
+                )
             )
             replica = str(self._replica_dir / "replica.db")
             # The URL names the replica and the server, never the token. Every

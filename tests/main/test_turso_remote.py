@@ -310,7 +310,8 @@ def test_the_destination_replica_goes_under_the_staging_root(tmp_path):
 
     stage = tmp_path / "stage" / "here"
     destination = TursoDestination()
-    destination.dlt_dest(_unreachable(), remote_database_staging_root=str(stage))
+    destination.set_remote_database_staging_root(str(stage))
+    destination.dlt_dest(_unreachable())
     replicas = list(stage.glob("turso-replica-*"))
     assert len(replicas) == 1
     destination.close()
@@ -323,17 +324,42 @@ def test_run_ingest_hands_the_staging_root_to_the_destination(
     from omniload.target import turso as turso_target
 
     seen = []
-    real = turso_target.TursoDestination.dlt_dest
+    real = turso_target.TursoDestination.set_remote_database_staging_root
 
-    def spy(self, uri, **kwargs):
-        seen.append(kwargs.get("remote_database_staging_root"))
-        return real(self, uri, **kwargs)
+    def spy(self, root):
+        seen.append(root)
+        return real(self, root)
 
-    monkeypatch.setattr(turso_target.TursoDestination, "dlt_dest", spy)
+    monkeypatch.setattr(
+        turso_target.TursoDestination, "set_remote_database_staging_root", spy
+    )
     stage = tmp_path / "stage"
     _to_remote(source_db, dry_run=True, remote_database_staging_root=str(stage))
     assert seen == [str(stage)]
     assert list(stage.iterdir()) == []
+
+
+def test_a_destination_without_the_hook_never_sees_the_staging_root(
+    source_db, tmp_path, monkeypatch
+):
+    """DuckDB forwards unknown keywords to dlt, which warns about each one."""
+    from omniload.target.duckdb import DuckDBDestination
+
+    seen = []
+    real = DuckDBDestination.dlt_dest
+
+    def spy(self, uri, **kwargs):
+        seen.append(sorted(kwargs))
+        return real(self, uri, **kwargs)
+
+    monkeypatch.setattr(DuckDBDestination, "dlt_dest", spy)
+    _to_remote(
+        source_db,
+        dest_uri=f"duckdb:///{tmp_path / 'out.duckdb'}",
+        dry_run=True,
+        remote_database_staging_root=str(tmp_path / "stage"),
+    )
+    assert seen == [["dest_table", "staging_bucket"]]
 
 
 def test_call_redacted_replaces_the_token_and_drops_the_original():

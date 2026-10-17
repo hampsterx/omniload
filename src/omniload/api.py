@@ -505,11 +505,13 @@ def _assemble_and_run(
     elif progress == Progress.spinner:
         progressInstance = SpinnerCollector()
 
+    stage_under = getattr(destination, "set_remote_database_staging_root", None)
+    if stage_under is not None:
+        stage_under(jr.remote_database_staging_root)
     dlt_dest = destination.dlt_dest(
         uri=jr.dest_uri,
         dest_table=dest_table,
         staging_bucket=jr.staging_bucket,
-        remote_database_staging_root=jr.remote_database_staging_root,
     )
     validate_loader_file_format(dlt_dest, loader_file_format)
     if dest_table_was_defaulted:

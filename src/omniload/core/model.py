@@ -66,6 +66,12 @@ class DestinationProtocol(Protocol):
     A destination whose state cannot be kept consistent with a persistent
     ``--pipelines-dir`` may define ``persistent_pipelines_dir_refusal(uri) ->
     str | None``; a returned reason refuses such a run before anything is loaded.
+
+    A destination that copies a remote database to local disk may define
+    ``set_remote_database_staging_root(root: str | None) -> None``. The ingest API
+    calls it before ``dlt_dest()`` with the run's ``remote_database_staging_root``,
+    so the copy can go where the caller asked rather than the system temporary
+    directory. Other destinations never see the option.
     """
 
     def dlt_dest(self, uri: str, **kwargs) -> "Destination":
