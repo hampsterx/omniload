@@ -29,13 +29,13 @@ omniload ingest \
     --source-table 'public.orders' \
     --dest-uri 'duckdb:///warehouse.duckdb' \
     --dest-table 'raw.orders' \
-    --notify 'ntfy://ntfy.sh/nightly-loads'
+    --notify 'ntfys://ntfy.sh/nightly-loads'
 ```
 
 `--notify` can be given more than once. Some targets, as Apprise URLs:
 
 - email: `mailto://user:pass@example.com`
-- ntfy: `ntfy://ntfy.sh/<topic>`
+- ntfy: `ntfys://ntfy.sh/<topic>`
 - Slack: `slack://<token-a>/<token-b>/<token-c>`
 
 The [Apprise wiki] documents the URL format of every target. A notification URL
@@ -56,7 +56,7 @@ run_ingest(
     source_table="public.orders",
     dest_uri="duckdb:///warehouse.duckdb",
     dest_table="raw.orders",
-    notify=["ntfy://ntfy.sh/nightly-loads"],
+    notify=["ntfys://ntfy.sh/nightly-loads"],
     notify_on="failure",
 )
 ```
@@ -80,18 +80,18 @@ own environment variable, as everywhere else in `ingest`, but `--notify` and
 ```shell
 # Ad hoc: one target, every outcome.
 omniload ingest --source-uri ... --source-table ... --dest-uri ... --dest-table ... \
-    --notify 'ntfy://ntfy.sh/nightly-loads'
+    --notify 'ntfys://ntfy.sh/nightly-loads'
 
 # Routed by a config file, plus an inline target for this run.
 omniload ingest ... --notify-config notify.yml --notify 'mailto://user:pass@example.com'
 ```
 
 The environment variables take several values separated by whitespace, for
-example `OMNILOAD_NOTIFY='ntfy://ntfy.sh/a mailto://user:pass@example.com'`.
+example `OMNILOAD_NOTIFY='ntfys://ntfy.sh/a mailto://user:pass@example.com'`.
 
 :::{note}
-Unlike the other `ingest` options, these three have no bare environment variable
-name (`NOTIFY`, `NOTIFY_CONFIG`, `NOTIFY_ON`), and omniload ignores Apprise's own
+Like `--columns`, and unlike the other `ingest` options, these three have no bare
+environment variable name (`NOTIFY`, `NOTIFY_CONFIG`, `NOTIFY_ON`), and omniload ignores Apprise's own
 discovery: `APPRISE_URLS`, `APPRISE_CONFIG_PATH` and the default config paths
 such as `~/.apprise.yml`. A notification is a side effect, so a run only sends
 one when its own invocation asks for it.
@@ -112,7 +112,7 @@ goes out. Config entries route by their own tags:
 urls:
   - slack://T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ:
       tag: always
-  - ntfy://ntfy.sh/nightly-failures:
+  - ntfys://ntfy.sh/nightly-failures:
       tag: failure
 ```
 
@@ -128,7 +128,9 @@ it. Three parts of it shape what omniload sends:
   include and keeps the remote file's own entries.
 - **Priorities**: a tag with a priority (`1:failure`) escalates as it does in
   Apprise. Entries of the lowest priority go first, and the next group is only
-  tried when one of them fails.
+  tried when one of them fails. Inline `--notify` URLs and entries without a
+  priority are priority 0, so while they succeed, a `1:failure` entry receives
+  nothing. Entries tagged `always` do not escalate: each of them is sent to.
 - **Untagged entries receive nothing**, since that is how Apprise matches a tag
   filter. Give every entry a tag.
 
@@ -227,7 +229,8 @@ Rows normalized:
 ```
 
 A failed run adds the stage it stopped at (`setup`, `staging`, `extract`,
-`normalize`, `load`, `destination_post_load` or `source_post_load`) and the type
+`normalize`, `load`, `destination_post_load` or `source_post_load`, or
+`pipeline` for any other dlt step) and the type
 of the exception, such as `NoSuchTableError`. Row counts are the rows dlt
 normalized, not rows committed, without dlt's own state tables. A count omniload
 does not know for the run is shown as unavailable, never as 0.
@@ -260,7 +263,10 @@ waits at most 30 seconds. A target still sending after that keeps going until
 its own network timeouts end it, and the process waits for it before exiting.
 
 A run stopped by `KeyboardInterrupt` or `SystemExit` sends no report. An
-interrupt while the report is being sent interrupts as usual.
+interrupt while the report is being sent interrupts as usual. A `SystemExit`
+raised while the report is being sent, by a plugin or by a signal handler of a
+program that embeds omniload, is logged as a failed send and does not end
+the run.
 
 ### What omniload keeps out of the log
 
