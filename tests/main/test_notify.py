@@ -284,6 +284,39 @@ def test_databricks_retry_reports_the_terminal_outcome_once(
         assert [payload["type"] for _, payload in recorder.posts] == ["failure"]
 
 
+def test_a_staged_run_that_fails_in_setup_reports_setup(
+    recorder, tmp_path, monkeypatch
+):
+    """Once the download is done, a failure is no longer a staging failure."""
+    import contextlib
+    import sqlite3
+
+    import omniload.source.sql_database.remote as remote
+
+    database = tmp_path / "staged.db"
+    sqlite3.connect(database).close()
+
+    @contextlib.contextmanager
+    def staged(*args, **kwargs):
+        yield f"sqlite:///{database}"
+
+    monkeypatch.setattr(remote, "stage_remote_database", staged)
+    with pytest.raises(NoSuchTableError):
+        run_ingest(
+            source_uri="s3://bucket/snapshots/events.duckdb",
+            source_table="main.missing",
+            dest_uri=f"duckdb:///{tmp_path / 'warehouse.duckdb'}",
+            dest_table="out.missing",
+            notify=[recorder.url()],
+        )
+    assert "Stage: `setup`" in recorder.posts[0][1]["message"]
+
+
+def test_a_bare_inline_value_is_not_labelled_a_file(csv_load):
+    with pytest.raises(ValidationError, match=r"--notify #1 \(unknown\)"):
+        run_ingest(**csv_load, notify=["not-a-url"])
+
+
 def test_staging_failure_reports_before_any_source_exists(recorder, monkeypatch):
     import omniload.source.sql_database.remote as remote
 
@@ -358,6 +391,10 @@ def test_failures_after_setup_release_first_and_name_the_stage(
     payload = recorder.posts[0][1]
     assert len(recorder.posts) == 1
     assert f"Stage: `{stage}`" in payload["message"]
+    if stage.endswith("post_load"):
+        # The load itself committed, so the report carries what it loaded.
+        assert "Load packages: 1" in payload["message"]
+        assert "`t`: 3 rows" in payload["message"]
     assert SECRET not in recorder.payloads()
 
 
@@ -398,7 +435,7 @@ def test_a_broken_notification_changes_nothing(
 
         monkeypatch.setattr(JobReport, "as_markdown", raising_render)
 
-    url = recorder.url(f"/hook?token={SECRET}")
+    url = recorder.url(f"/hook-{SECRET}")
     if breakage == "endpoint_500":
         url = recorder.url("/hook")
     with caplog.at_level(logging.WARNING, logger="omniload"):
@@ -520,11 +557,11 @@ def test_no_secret_reaches_a_report_or_a_warning(
         urls:
           - {recorder.url(f"/local-{SECRET}")}:
               tag: always
-          - {recorder.url("/down")}?token={SECRET}:
+          - {recorder.url(f"/down-{SECRET}")}:
               tag: failure
         """,
     )
-    recorder.status["/down"] = 500
+    recorder.status[f"/down-{SECRET}"] = 500
     targets = {
         "notify": [recorder.url(f"/inline-{SECRET}")],
         "notify_config": [
@@ -533,6 +570,11 @@ def test_no_secret_reaches_a_report_or_a_warning(
         ],
     }
     dest = f"duckdb:///{tmp_path / 'warehouse.duckdb'}?password={SECRET}"
+    # Reading a `query:` table swaps dlt's `table_rows` for the rest of the process;
+    # put it back afterwards, so later SQL loads in this worker read real tables.
+    import dlt.sources.sql_database as sql_database
+
+    monkeypatch.setattr(sql_database, "table_rows", sql_database.table_rows)
     with caplog.at_level(logging.DEBUG):
         run_ingest(
             source_uri=f"sqlite:///{database}?password={SECRET}",
@@ -989,8 +1031,8 @@ def test_apprise_logs_nothing_secret(
 ):
     """apprise formats raw URLs into warnings and urllib3 logs request paths at DEBUG."""
     _all_loggers_at_debug(monkeypatch)
-    recorder.status["/down-a"] = 500
-    recorder.status["/down-b"] = 500
+    recorder.status[f"/down-a-{SECRET}"] = 500
+    recorder.status[f"/down-b-{SECRET}"] = 500
     recorder.configs[f"/cfg-{SECRET}.yml"] = (
         f"urls:\n  - {recorder.url(f'/remote-{SECRET}')}:\n      tag: always\n",
         "text/yaml",
@@ -1003,9 +1045,9 @@ def test_apprise_logs_nothing_secret(
           - {recorder.url(f"/entry-{SECRET}")}:
               tag: always
               tags: ops
-          - {recorder.url("/down-a")}?token={SECRET}:
+          - {recorder.url(f"/down-a-{SECRET}")}:
               tag: always
-          - {recorder.url("/down-b")}?token={SECRET}:
+          - {recorder.url(f"/down-b-{SECRET}")}:
               tag: always
         """,
     )
@@ -1043,15 +1085,15 @@ def test_apprise_logs_nothing_secret_when_imported_fresh(recorder, tmp_path):
             dest_uri="duckdb:///{tmp_path / "w.duckdb"}",
             dest_table="out.t",
             progress="log",
-            notify=["json://127.0.0.1:{recorder.port}/down?token={SECRET}"],
+            notify=["json://127.0.0.1:{recorder.port}/down-{SECRET}"],
         )
         print("apprise" in sys.modules)
         """
     )
-    recorder.status["/down"] = 500
+    recorder.status[f"/down-{SECRET}"] = 500
     result = _run_python(script, tmp_path)
     assert result.stdout.splitlines()[-1] == "True"
-    assert recorder.paths() == ["/down"]
+    assert recorder.paths() == [f"/down-{SECRET}"]
     # The handler did capture this run's logging: omniload's own warning is there.
     assert "Job report delivery failure (json)" in result.stderr
     assert SECRET not in result.stdout + result.stderr

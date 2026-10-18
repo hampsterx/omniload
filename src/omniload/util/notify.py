@@ -112,7 +112,9 @@ def _import_apprise():
 
 
 def _label(option: str, position: int, value: str) -> str:
-    scheme = "file" if "://" not in value else render_scheme(value)
+    # A bare config source is a local path; a bare `--notify` value is no URL at all.
+    bare = "file" if option == "--notify-config" else "unknown"
+    scheme = bare if "://" not in value else render_scheme(value)
     return f"{option} #{position} ({scheme})"
 
 
@@ -123,7 +125,6 @@ class Notifier:
     apprise: Any
     sender: Any
     notify_on: NotifyOn
-    target_count: int
 
     @classmethod
     def prepare(cls, request: LoadRequest) -> Notifier | None:
@@ -150,7 +151,6 @@ class Notifier:
         with quiet_apprise():
             try:
                 sender = apprise.Apprise()
-                count = 0
                 for position, url in enumerate(urls, start=1):
                     probe = apprise.Apprise()
                     if not probe.add(url, tag=OUTCOME_TAGS):
@@ -160,13 +160,11 @@ class Notifier:
                         )
                     services = list(probe.find(tag=OUTCOME_TAGS))
                     sender.add(services)
-                    count += len(services)
                 for position, source in enumerate(sources, start=1):
                     services = cls._read_config(
                         apprise, source, position, dry_run=request.dry_run
                     )
                     sender.add(services)
-                    count += len(services)
             except ValidationError:
                 raise
             except Exception as exc:
@@ -174,9 +172,7 @@ class Notifier:
                 raise ValidationError(
                     f"Reading the notification targets failed: {type(exc).__name__}"
                 ) from None
-        return cls(
-            apprise=apprise, sender=sender, notify_on=notify_on, target_count=count
-        )
+        return cls(apprise=apprise, sender=sender, notify_on=notify_on)
 
     @staticmethod
     def _read_config(apprise, source: str, position: int, *, dry_run: bool) -> list:
