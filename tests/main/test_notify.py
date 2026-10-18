@@ -756,6 +756,29 @@ def test_unusable_configs_fail_before_staging(
         assert recorder.posts == [], case
 
 
+def test_a_missing_config_file_is_named_as_such(csv_load, tmp_path):
+    with pytest.raises(
+        ValidationError, match=r"--notify-config #1 \(file\): no such file"
+    ):
+        run_ingest(**csv_load, notify_config=[str(tmp_path / f"{SECRET}.yml")])
+
+
+def test_an_unexpected_apprise_error_is_reported_by_type_only(
+    csv_load, tmp_path, monkeypatch
+):
+    config = _write(tmp_path, "c.yml", "urls: []\n")
+
+    def raising_add(self, *args, **kwargs):
+        raise RuntimeError(f"apprise could not read json://127.0.0.1/{SECRET}")
+
+    monkeypatch.setattr(apprise.AppriseConfig, "add", raising_add)
+    with pytest.raises(ValidationError) as excinfo:
+        run_ingest(**csv_load, notify_config=[str(config)])
+    assert str(excinfo.value) == "Reading the notification targets failed: RuntimeError"
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__suppress_context__
+
+
 def test_a_template_with_a_value_validates_and_delivers(
     recorder, csv_load, tmp_path, monkeypatch
 ):
@@ -1046,6 +1069,8 @@ def test_a_worker_abandoned_on_timeout_stays_quiet(
     def late(body, title, notify_type, *args, **kwargs):
         release.wait(10)
         logging.getLogger("apprise").warning("late worker saw %s", SECRET)
+        # A logger first created by the abandoned worker, after the call returned.
+        logging.getLogger("omniload_test_late.lib").warning("late lib saw %s", SECRET)
         done.set()
         return True
 
@@ -1060,6 +1085,116 @@ def test_a_worker_abandoned_on_timeout_stays_quiet(
     assert not any(SECRET in message for message in messages)
     assert SECRET not in capfd.readouterr().err
     assert "outside omniload" in messages
+
+
+def _register_plugin(scheme: str, behaviour):
+    """Register an apprise plugin for `scheme` that runs `behaviour()` on delivery."""
+    from apprise.decorators import notify as apprise_plugin
+
+    @apprise_plugin(on=scheme)
+    def plugin(body, title, notify_type, *args, **kwargs):
+        return behaviour()
+
+    return plugin
+
+
+@pytest.mark.parametrize("handlers", ["captured", "none"])
+def test_loggers_created_during_a_send_stay_quiet(
+    recorder, csv_load, monkeypatch, caplog, capfd, handlers
+):
+    """A logger that did not exist before the call, under any name, is still dropped."""
+    fresh = f"omniload_test_plugin_{handlers}"
+
+    def behaviour():
+        logging.getLogger(f"{fresh}.lib").warning("plugin saw %s", SECRET)
+        logging.getLogger(f"apprise.{fresh}").warning("apprise child saw %s", SECRET)
+        return True
+
+    _register_plugin(f"omniloadfresh{handlers}", behaviour)
+    if handlers == "none":
+        # Nothing to handle the record: it would fall through to `logging.lastResort`.
+        monkeypatch.setattr(logging.root, "handlers", [])
+        info = run_ingest(**csv_load, notify=[f"omniloadfresh{handlers}://x"])
+    else:
+        with caplog.at_level(logging.DEBUG):
+            info = run_ingest(**csv_load, notify=[f"omniloadfresh{handlers}://x"])
+        assert not any(SECRET in r.getMessage() for r in caplog.records)
+    assert info is not None
+    assert SECRET not in capfd.readouterr().err
+
+
+@pytest.mark.parametrize("raised", [SystemExit(41), GeneratorExit()])
+def test_a_plugin_raising_a_base_exception_changes_nothing(
+    csv_load, tmp_path, caplog, raised
+):
+    def behaviour():
+        raise raised
+
+    scheme = f"omniloadexit{type(raised).__name__.lower()}"
+    _register_plugin(scheme, behaviour)
+    with caplog.at_level(logging.WARNING, logger="omniload"):
+        info = run_ingest(**csv_load, notify=[f"{scheme}://x"])
+        with pytest.raises(NoSuchTableError):
+            run_ingest(**_missing_table(tmp_path), notify=[f"{scheme}://x"])
+    assert info is not None
+
+
+def test_a_failure_inside_report_itself_changes_nothing(
+    recorder, csv_load, tmp_path, monkeypatch
+):
+    def raising_build(*args, **kwargs):
+        raise SystemExit(7)
+
+    monkeypatch.setattr(notify_module, "build", raising_build)
+    assert run_ingest(**csv_load, notify=[recorder.url()]) is not None
+    with pytest.raises(NoSuchTableError):
+        run_ingest(**_missing_table(tmp_path), notify=[recorder.url()])
+
+
+def test_a_keyboard_interrupt_while_sending_still_interrupts(csv_load):
+    def behaviour():
+        raise KeyboardInterrupt
+
+    _register_plugin("omniloadinterrupt", behaviour)
+    with pytest.raises(KeyboardInterrupt):
+        run_ingest(**csv_load, notify=["omniloadinterrupt://x"])
+
+
+@pytest.mark.parametrize("form", ["relative file://", "percent-escaped", "home"])
+def test_config_paths_resolve_as_apprise_reads_them(
+    recorder, csv_load, tmp_path, monkeypatch, form
+):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(tmp_path)
+    body = f"urls:\n  - {recorder.url('/ok')}:\n      tag: always\n"
+    if form == "relative file://":
+        (tmp_path / "notify.yml").write_text(body)
+        source = "file://notify.yml"
+    elif form == "percent-escaped":
+        (tmp_path / "my notify.yml").write_text(body)
+        source = f"file://{tmp_path}/my%20notify.yml"
+    else:
+        (home / "notify.yml").write_text(body)
+        source = "~/notify.yml"
+    run_ingest(**csv_load, notify_config=[source])
+    assert recorder.paths() == ["/ok"]
+
+
+def test_cli_notify_on(recorder, csv_load, tmp_path):
+    args = [*_cli_load(csv_load), "--notify", recorder.url()]
+    result = _cli([*args, "--notify-on", "failure"])
+    assert result.exit_code == 0, result.output
+    assert recorder.posts == []
+
+    result = _cli(args, env={"OMNILOAD_NOTIFY_ON": "failure"})
+    assert result.exit_code == 0, result.output
+    assert recorder.posts == []
+
+    result = _cli([*args, "--notify-on", "sometimes"])
+    assert result.exit_code != 0
+    assert "sometimes" in result.output
 
 
 def test_apprise_discovery_is_never_used(recorder, tmp_path):

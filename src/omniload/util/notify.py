@@ -12,9 +12,9 @@ notification that cannot be sent logs one warning and changes nothing else: the 
 value, the exception and the exit status stay what they would have been.
 
 Notification URLs carry secrets (webhook tokens, passwords), and apprise's own log lines
-and its transport's debug lines print them. While omniload calls apprise, those loggers
-are muted for the calling context (`quiet_apprise`), and omniload names each input by
-its position and scheme only.
+and its transport's debug lines print them. While omniload calls apprise, every record
+created in that context is dropped, omniload's own excepted (`quiet_apprise`), and
+omniload names each input by its position and scheme only.
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ import contextvars
 import dataclasses
 import datetime as dt
 import logging
+import os
+import threading
 from collections.abc import Generator
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 from omniload.core.report import Stage, Status, build, render_scheme
 from omniload.error import ValidationError
@@ -48,72 +48,56 @@ NOTIFY_TIMEOUT = 30
 #: Tags inline URLs are added with, so they receive every outcome.
 OUTCOME_TAGS = [Status.success.value, Status.failure.value]
 
-#: Config sources are read over HTTP from these schemes; everything else is local.
-REMOTE_SCHEMES = frozenset({"http", "https"})
-
-#: Loggers apprise and the libraries it sends through write to. Their records can
-#: carry notification URLs (apprise formats raw URLs into some warnings, urllib3 logs
-#: request paths at DEBUG), so they are muted while omniload calls apprise. A filter
-#: applies only on the logger that creates a record, so every logger under these names
-#: gets one.
-QUIET_LOGGER_PREFIXES = (
-    "apprise",
-    "urllib3",
-    "requests",
-    "requests_oauthlib",
-    "oauthlib",
-    "charset_normalizer",
-    "MARKDOWN",
-    "asyncio",
-    "concurrent.futures",
-)
-
 _QUIET = contextvars.ContextVar("omniload_quiet_apprise", default=False)
+_QUIET_INSTALL = threading.Lock()
+_quiet_installed = False
 
 
-class _QuietFilter(logging.Filter):
-    """Drop every record created while the calling context has `_QUIET` set.
+def _is_omniload(name: str) -> bool:
+    return name == "omniload" or name.startswith("omniload.")
 
-    apprise runs each delivery in a worker thread with a copy of the caller's
-    context, so a worker it abandons on timeout still carries the flag when it logs
-    later. Outside such a context the filter passes everything through.
+
+def _install_quiet_hook() -> None:
+    """Make every logger drop records created while `_QUIET` is set.
+
+    apprise's records, and those of the libraries its plugins send through, can carry
+    notification URLs (apprise formats raw URLs into some warnings, urllib3 logs
+    request paths at DEBUG). A filter on a logger only sees the records that logger
+    creates, and plugins create loggers of their own, some during a call or in a
+    worker after it, so per-logger filters always miss one. The check therefore sits
+    in `Logger.handle`, which every record passes before any handler, or
+    `logging.lastResort`, sees it. Outside omniload's calls to apprise it passes
+    everything through, and omniload's own records always pass.
     """
+    global _quiet_installed
+    with _QUIET_INSTALL:
+        if _quiet_installed:
+            return
+        handle = logging.Logger.handle
 
-    def filter(self, record: logging.LogRecord) -> bool:
-        return not _QUIET.get()
+        def quiet_handle(self, record):
+            if _QUIET.get() and not _is_omniload(record.name):
+                return None
+            return handle(self, record)
 
-
-_QUIET_FILTER = _QuietFilter()
-
-
-def _install_quiet_filter() -> None:
-    """Attach the filter to every existing logger under `QUIET_LOGGER_PREFIXES`."""
-    names = list(QUIET_LOGGER_PREFIXES)
-    names += [
-        name
-        for name in list(logging.root.manager.loggerDict)
-        if name.startswith(tuple(f"{prefix}." for prefix in QUIET_LOGGER_PREFIXES))
-    ]
-    for name in names:
-        target = logging.getLogger(name)
-        if _QUIET_FILTER not in target.filters:
-            target.addFilter(_QUIET_FILTER)
+        setattr(logging.Logger, "handle", quiet_handle)  # noqa: B010
+        _quiet_installed = True
 
 
 @contextlib.contextmanager
 def quiet_apprise() -> Generator[None, None, None]:
-    """Mute apprise and its transport for work done in this context.
+    """Drop the log records apprise and its dependencies create in this context.
 
-    The filter is installed on entry and again on exit, so loggers apprise or its
-    dependencies created during the call are covered for any worker still running.
+    apprise runs each delivery in a worker thread with a copy of the caller's
+    context, so a worker it abandons on timeout still carries the flag when it logs
+    later.
     """
-    _install_quiet_filter()
+    _install_quiet_hook()
     token = _QUIET.set(True)
     try:
         yield
     finally:
         _QUIET.reset(token)
-        _install_quiet_filter()
 
 
 def _import_apprise():
@@ -130,16 +114,6 @@ def _import_apprise():
 def _label(option: str, position: int, value: str) -> str:
     scheme = "file" if "://" not in value else render_scheme(value)
     return f"{option} #{position} ({scheme})"
-
-
-def _local_path(source: str) -> Path | None:
-    """Return the file a local config source names, or `None` for a remote one."""
-    if "://" not in source:
-        return Path(source)
-    parts = urlsplit(source)
-    if parts.scheme.lower() == "file":
-        return Path(parts.path)
-    return None
 
 
 @dataclasses.dataclass
@@ -207,13 +181,21 @@ class Notifier:
     @staticmethod
     def _read_config(apprise, source: str, position: int, *, dry_run: bool) -> list:
         """Read one config source on its own and return its usable services."""
+        from apprise.config.file import ConfigFile
+        from apprise.config.http import ConfigHTTP
+
         label = _label("--notify-config", position, source)
-        path = _local_path(source)
-        if path is not None and not path.is_file():
-            raise ValidationError(f"{label}: no such file")
         config = apprise.AppriseConfig(recursion=1)
         if not config.add(source):
             raise ValidationError(f"{label} is not a config source apprise can read")
+        # apprise resolves the path itself (relative `file://`, percent escapes, `~`);
+        # check the one it will read, so a missing file says so.
+        if any(
+            isinstance(entry, ConfigFile) and not os.path.isfile(entry.path)
+            for entry in config
+        ):
+            raise ValidationError(f"{label}: no such file")
+        remote = any(isinstance(entry, ConfigHTTP) for entry in config)
         # A throwaway object holding only this source, because `services()` flattens
         # every source and include together, and one good file would hide a broken
         # one. `find()` forces the read, resolves `${NAME}` templates without sending,
@@ -223,7 +205,7 @@ class Notifier:
         services = list(probe.find(tag=OUTCOME_TAGS, report=[]))
         if services:
             return services
-        if path is None and not dry_run and render_scheme(source) in REMOTE_SCHEMES:
+        if remote and not dry_run:
             logger.warning("%s yielded no usable target, skipped for this run", label)
             return []
         raise ValidationError(
@@ -240,11 +222,15 @@ class Notifier:
         exception: BaseException | None = None,
         stage: Stage | None = None,
     ) -> None:
-        """Build the run's report and send it. Never raises."""
-        status = Status.success if exception is None else Status.failure
-        if self.notify_on is NotifyOn.failure and status is Status.success:
-            return
+        """Build the run's report and send it.
+
+        Never raises, whatever apprise or a plugin does, so the load's outcome stays
+        its own; only `KeyboardInterrupt` passes through.
+        """
         try:
+            status = Status.success if exception is None else Status.failure
+            if self.notify_on is NotifyOn.failure and status is Status.success:
+                return
             report = build(
                 request,
                 started_at,
@@ -254,7 +240,9 @@ class Notifier:
                 stage=stage,
             )
             self._send(report.title, report.as_markdown(), status)
-        except Exception as exc:
+        except KeyboardInterrupt:
+            raise
+        except BaseException as exc:
             logger.warning("Sending the job report failed: %s", type(exc).__name__)
 
     def _send(self, title: str, body: str, status: Status) -> None:
