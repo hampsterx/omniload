@@ -5,6 +5,7 @@ import uuid
 
 import dlt
 import pytest
+from dlt.common.pipeline import LoadInfo
 from dlt.pipeline.exceptions import PipelineStepFailed
 
 import omniload
@@ -384,11 +385,13 @@ def test_step_info_passed_as_load_info_still_has_no_failed_jobs(tmp_path):
     started_at = _now()
     with pytest.raises(PipelineStepFailed) as excinfo:
         pipeline.run(_three_rows())
+    snapshot = excinfo.value.step_info
+    assert isinstance(snapshot, LoadInfo)
     report = build(
         _request(),
         started_at,
         _now(),
-        load_info=excinfo.value.step_info,
+        load_info=snapshot,
         exception=excinfo.value,
     )
     assert report.load_package_count == 1
