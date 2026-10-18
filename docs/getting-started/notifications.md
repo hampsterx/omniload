@@ -277,12 +277,13 @@ What the hook does not cover:
 - A logger class that overrides `handle`, or code that kept a reference to
   `Logger.handle` from before omniload installed the hook.
 - Output written with `warnings.warn`, which does not go through logging unless
-  `logging.captureWarnings(True)` is set.
+  `logging.captureWarnings(True)` is set. `urllib3` warns this way, naming the
+  host, when a target turns off certificate checks (`?verify=no`).
 - Threads a plugin starts without the calling context, such as the XMPP
   plugin's own thread.
 
-Of these, only the XMPP thread occurs in Apprise 2.0 and the libraries it sends
-through (`requests`, `urllib3`, `oauthlib`).
+Of these, the XMPP thread and the `urllib3` warning occur with Apprise 2.0 and
+the libraries it sends through.
 
 [Apprise]: https://github.com/caronc/apprise
 [Apprise config]: https://github.com/caronc/apprise/wiki/config
