@@ -356,9 +356,12 @@ def test_defaulted_dest_table_names_rows_by_position(tmp_path):
     assert report.destination.table == "sql (custom selector)"
     _assert_no_secret(report)
 
-    # Control: an explicit plain dest table keeps dlt's table names.
-    named = build(_request(dest_table="out.t"), started_at, _now(), load_info=info)
-    assert named.rows == ((f"sel_{SECRET}".lower(), 3),)
+    # Control: an explicit plain dest table keeps dlt's table names, padded or not.
+    for dest_table in ("out.t", " out.t "):
+        named = build(
+            _request(dest_table=dest_table), started_at, _now(), load_info=info
+        )
+        assert named.rows == ((f"sel_{SECRET}".lower(), 3),)
 
 
 def test_explicit_dest_table_with_a_stripped_part_names_tables_by_position(

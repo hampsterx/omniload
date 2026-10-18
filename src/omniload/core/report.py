@@ -218,7 +218,12 @@ def build(
     in-memory one is unset, and those numbers belong to that run. The package count
     comes from ``load_info``, else the ``LoadInfo`` a ``PipelineStepFailed`` carries.
     Failed jobs come from ``load_info``, else the failed jobs of an ``IngestJobError``;
-    a ``PipelineStepFailed``'s own ``LoadInfo`` predates its jobs, so it gives none.
+    a ``PipelineStepFailed``'s own ``LoadInfo`` predates its jobs, so it gives none,
+    also when passed as ``load_info`` (recognised by identity, so not as a copy).
+
+    Table names from dlt (rows, failed jobs) are replaced by position (``table 1``)
+    when the destination selector, given or defaulted, lost anything but surrounding
+    whitespace in rendering, because dlt names the table after the raw selector.
     """
     from dlt.common.pipeline import LoadInfo
     from dlt.pipeline.exceptions import PipelineStepFailed
@@ -257,7 +262,9 @@ def build(
     # defaulted), normalising whatever the rendering dropped into an identifier: a
     # `?token=...` or a query payload. Name tables by position whenever it dropped any.
     dest_selector = request.source_table if dest_defaulted else request.dest_table
-    positional = dest_selector is not None and destination.table != dest_selector
+    positional = (
+        dest_selector is not None and destination.table != dest_selector.strip()
+    )
 
     pipeline = None
     if load_info is not None:
