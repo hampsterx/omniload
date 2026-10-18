@@ -128,9 +128,11 @@ it. Three parts of it shape what omniload sends:
   include and keeps the remote file's own entries.
 - **Priorities**: a tag with a priority (`1:failure`) escalates as it does in
   Apprise. Entries of the lowest priority go first, and the next group is only
-  tried when one of them fails. Inline `--notify` URLs and entries without a
-  priority are priority 0, so while they succeed, a `1:failure` entry receives
-  nothing. Entries tagged `always` do not escalate: each of them is sent to.
+  tried when one of them fails. Inline `--notify` URLs and `failure` entries
+  without a priority are priority 0, so while they succeed, a `1:failure` entry
+  receives nothing. Entries tagged `always` sit outside that escalation: each of
+  them is sent to, whatever its priority, and none of them holds back a
+  `1:failure` entry.
 - **Untagged entries receive nothing**, since that is how Apprise matches a tag
   filter. Give every entry a tag.
 

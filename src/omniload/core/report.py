@@ -8,8 +8,9 @@ field is drawn from an allowlist and nothing free-form is copied in:
 - URIs are reduced to their scheme. Credentials, hosts and paths never appear.
 - Table selectors keep only their leading identifier. A selector with a payload
   (``query:<SQL>``, ``sql:<SQL>``, ``collection:<query JSON>``, ``custom:<fields>``
-  and the like) or a ``?``/``#`` part is rendered as a custom selector, because the
-  payload is a query or carries values. A plain path or glob selector is kept as given.
+  and the like) is rendered as a custom selector, because the payload is a query or
+  carries values, and a ``?``/``#`` part is dropped. A plain path or glob selector is
+  kept as given.
 - dlt's table names (row counts, failed jobs) are shown when they are plain
   identifiers and the destination selector was not redacted, otherwise by position
   (``table 1``). Nested tables are named after the data's own keys, and a spreadsheet
@@ -111,9 +112,9 @@ class JobReport:
     - ``exception_type``: the raised exception's class name, plus the wrapped
       exception's class for dlt's ``PipelineStepFailed``. Never its message.
     - ``rows``: rows **normalized** per table (dlt's normalize metrics, not rows
-      committed), dlt's own state, loads and version tables dropped. `None` when no
-      normalize info exists for this run; an empty tuple when normalize ran and
-      produced no data tables.
+      committed), dlt's own state, loads and version tables dropped. `None` when
+      normalize did not finish for this run (no normalize info, or its step failed);
+      an empty tuple when normalize finished and produced no data tables.
     - ``load_package_count``, ``failed_job_count``: `None` when no `LoadInfo` or
       failed-job list is known.
     - ``failed_job_tables``: table names of failed jobs, sorted, no messages; `None`
@@ -217,7 +218,9 @@ def build(
     Rows normalized come from the pipeline trace of ``load_info`` or of a
     ``PipelineStepFailed``, and only when that trace started at or after
     ``started_at``: dlt falls back to the trace persisted by an earlier run when the
-    in-memory one is unset, and those numbers belong to that run. The package count
+    in-memory one is unset, and those numbers belong to that run; and only when its
+    normalize step finished, since dlt records a normalize info for a failed one too.
+    The package count
     comes from ``load_info``, else the ``LoadInfo`` a ``PipelineStepFailed`` carries.
     Failed jobs come from ``load_info``, else the failed jobs of an ``IngestJobError``;
     a ``PipelineStepFailed``'s own ``LoadInfo`` predates its jobs, so it gives none,
