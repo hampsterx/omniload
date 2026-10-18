@@ -638,6 +638,20 @@ def _cli_load(csv_load) -> list[str]:
     ]
 
 
+def test_the_notify_flag_repeats(recorder, csv_load):
+    result = _cli(
+        [
+            *_cli_load(csv_load),
+            "--notify",
+            recorder.url("/a"),
+            "--notify",
+            recorder.url("/b"),
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert sorted(recorder.paths()) == ["/a", "/b"]
+
+
 def test_envvar_and_flag_precedence(recorder, csv_load, tmp_path):
     env = {"OMNILOAD_NOTIFY": f"{recorder.url('/env-a')} {recorder.url('/env-b')}"}
     result = _cli(_cli_load(csv_load), env=env)
