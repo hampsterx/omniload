@@ -261,6 +261,7 @@ def _with_row_counts(tmp_path, row_counts: dict[str, int]):
     trace = SimpleNamespace(
         started_at=_now() + dt.timedelta(days=1),
         last_normalize_info=SimpleNamespace(row_counts=row_counts),
+        last_pipeline_step_trace=lambda step: SimpleNamespace(step_exception=None),
     )
     return info._replace(pipeline=SimpleNamespace(last_trace=trace))
 
@@ -322,6 +323,26 @@ def test_unexpected_version_strings_are_not_shown(monkeypatch):
     report = build(_request(), _now(), _now())
     assert report.omniload_version == "unknown"
     _assert_no_secret(report)
+
+
+def test_a_normalize_failure_has_no_row_counts(tmp_path):
+    """dlt records an empty normalize info for a failed normalize step: unavailable."""
+
+    @dlt.resource(name="t", schema_contract={"columns": "freeze"})
+    def frozen(columns):
+        yield dict.fromkeys(columns, 1)
+
+    pipeline = _pipeline(tmp_path, _duckdb(tmp_path))
+    pipeline.run(frozen(["a"]))
+    started_at = _now()
+    with pytest.raises(PipelineStepFailed) as excinfo:
+        pipeline.run(frozen(["a", "b"]))
+    assert excinfo.value.step == "normalize"
+    report = build(_request(), started_at, _now(), exception=excinfo.value)
+
+    assert report.stage is Stage.normalize
+    assert report.rows is None
+    assert "Rows normalized: unavailable" in report.as_text()
 
 
 def test_normalize_with_no_data_tables(tmp_path):
@@ -499,6 +520,8 @@ def test_render_selector(table, expected):
         ("Postgres://user:pass@host/db", "postgres"),
         ("mssql+pyodbc://user:pass@host/db", "mssql+pyodbc"),
         ("user:pass@host/db", "unknown"),
+        ("user:pass@host://db", "unknown"),
+        ("sk-live-abcdef", "unknown"),
         ("sk_live_abcdef", "unknown"),
         ("", "unknown"),
     ],

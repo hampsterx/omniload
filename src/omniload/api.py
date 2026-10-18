@@ -26,6 +26,7 @@ from omniload.model import (
     IncrementalStrategy,
     LoaderFileFormat,
     LoadRequest,
+    NotifyOn,
     Progress,
     SchemaNaming,
     SqlBackend,
@@ -144,6 +145,12 @@ def run_ingest(**kwargs) -> LoadInfo | None:
     logs a warning, and never changes the return value or the exception.
     """
     jr = LoadRequest(**kwargs)
+    # Checked even without a target, so a typo fails now rather than once one is added.
+    try:
+        NotifyOn(jr.notify_on)
+    except ValueError as exc:
+        choices = ", ".join(member.value for member in NotifyOn)
+        raise ValidationError(f"--notify-on must be one of: {choices}") from exc
     if not (jr.notify or jr.notify_config):
         return _run_ingest_in_pipelines_dir(jr)
 

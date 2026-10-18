@@ -394,6 +394,11 @@ def _row_counts(pipeline, started_at: dt.datetime) -> dict[str, int] | None:
         return None
     if trace is None or trace.started_at is None or trace.started_at < started_at:
         return None
+    # dlt records a normalize info for a normalize step that failed too, with no
+    # metrics in it, so only a step that finished has counts to report.
+    step = trace.last_pipeline_step_trace("normalize")
+    if step is None or step.step_exception is not None:
+        return None
     normalize_info = trace.last_normalize_info
     if normalize_info is None:
         return None

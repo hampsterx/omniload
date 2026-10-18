@@ -490,6 +490,29 @@ def test_a_valid_dry_run_sends_nothing(recorder, csv_load):
     assert recorder.posts == []
 
 
+def test_a_failing_dry_run_sends_nothing(recorder, csv_load):
+    with pytest.raises(NotImplementedError):
+        run_ingest(
+            **{**csv_load, "dest_uri": "nope://x"},
+            notify=[recorder.url()],
+            dry_run=True,
+        )
+    assert recorder.posts == []
+
+
+@pytest.mark.parametrize("raised", [KeyboardInterrupt, SystemExit(3)])
+def test_an_interrupted_load_sends_no_report(recorder, csv_load, monkeypatch, raised):
+    """An interrupted run exits now instead of waiting on a delivery."""
+
+    def interrupted(*args, **kwargs):
+        raise raised
+
+    monkeypatch.setattr(omniload.api, "_run_ingest_in_pipelines_dir", interrupted)
+    with pytest.raises((KeyboardInterrupt, SystemExit)):
+        run_ingest(**csv_load, notify=[recorder.url()])
+    assert recorder.posts == []
+
+
 @pytest.mark.parametrize("option", ["notify", "notify_config"])
 def test_missing_extra_names_it(csv_load, tmp_path, monkeypatch, option):
     monkeypatch.setitem(sys.modules, "apprise", None)
@@ -716,6 +739,7 @@ def test_inline_and_config_add_up_in_one_call(
             notify_config=[str(config)],
         )
     assert sorted(recorder.paths()) == ["/always", "/failure", "/inline"]
+    assert calls == ["success", "failure"]
 
 
 def test_config_envvar_and_flags(recorder, csv_load, tmp_path):
@@ -757,9 +781,10 @@ def test_notify_on_failure_gates_every_target(recorder, csv_load, tmp_path):
     assert recorder.paths() == ["/always"]
 
 
-def test_an_unknown_notify_on_is_refused(csv_load):
+@pytest.mark.parametrize("notify", [["json://127.0.0.1/"], None])
+def test_an_unknown_notify_on_is_refused(csv_load, notify):
     with pytest.raises(ValidationError, match="--notify-on"):
-        run_ingest(**csv_load, notify=["json://127.0.0.1/"], notify_on="sometimes")
+        run_ingest(**csv_load, notify=notify, notify_on="sometimes")
 
 
 # Config validation.
@@ -979,6 +1004,33 @@ def test_priorities_escalate_as_in_apprise(recorder, tmp_path, first_status, exp
     assert recorder.paths() == expected
 
 
+def test_inline_urls_come_before_prioritised_entries(recorder, tmp_path):
+    """Inline URLs are priority 0, so while they succeed, `1:failure` waits."""
+    config = _write(
+        tmp_path,
+        "c.yml",
+        f"""
+        urls:
+          - {recorder.url("/primary")}:
+              tag: "1:failure"
+          - {recorder.url("/fallback")}:
+              tag: "2:failure"
+        """,
+    )
+    with pytest.raises(NoSuchTableError):
+        run_ingest(**_missing_table(tmp_path), notify_config=[str(config)])
+    assert recorder.paths() == ["/primary"]
+
+    recorder.posts.clear()
+    with pytest.raises(NoSuchTableError):
+        run_ingest(
+            **_missing_table(tmp_path),
+            notify=[recorder.url("/inline")],
+            notify_config=[str(config)],
+        )
+    assert recorder.paths() == ["/inline"]
+
+
 def test_a_remote_config_is_fetched_once_at_validation(recorder, csv_load):
     recorder.configs["/cfg.yml"] = (
         f"urls:\n  - {recorder.url('/remote')}:\n      tag: always\n",
@@ -1133,11 +1185,14 @@ def test_a_worker_abandoned_on_timeout_stays_quiet(
     monkeypatch.setattr(notify_module, "NOTIFY_TIMEOUT", 0.3)
     with caplog.at_level(logging.DEBUG):
         info = run_ingest(**csv_load, notify=["omniloadlate://x"])
+        # The run returned while the worker was still blocked: it was abandoned.
+        assert not done.is_set()
         release.set()
         assert done.wait(10)
         logging.getLogger("apprise").warning("outside omniload")
     assert info is not None
     messages = [r.getMessage() for r in caplog.records]
+    assert "Job report delivery timeout (omniloadlate)" in messages
     assert not any(SECRET in message for message in messages)
     assert SECRET not in capfd.readouterr().err
     assert "outside omniload" in messages
@@ -1256,7 +1311,9 @@ def test_cli_notify_on(recorder, csv_load, tmp_path):
 def test_apprise_discovery_is_never_used(recorder, tmp_path):
     home = tmp_path / "home"
     home.mkdir()
-    (home / ".apprise.yml").write_text(f"urls:\n  - {recorder.url('/home')}\n")
+    (home / ".apprise.yml").write_text(
+        f"urls:\n  - {recorder.url('/home')}:\n      tag: always\n"
+    )
     (tmp_path / "d.csv").write_text("id\n1\n")
     script = textwrap.dedent(
         f"""
@@ -1269,6 +1326,13 @@ def test_apprise_discovery_is_never_used(recorder, tmp_path):
             progress="log",
         )
         print("apprise" in sys.modules)
+        run_ingest(
+            source_uri="file://{tmp_path / "d.csv"}",
+            dest_uri="duckdb:///{tmp_path / "w.duckdb"}",
+            dest_table="out.t",
+            progress="log",
+            notify=["{recorder.url("/inline")}"],
+        )
         """
     )
     env = {
@@ -1277,5 +1341,6 @@ def test_apprise_discovery_is_never_used(recorder, tmp_path):
         "APPRISE_CONFIG_PATH": str(home / ".apprise.yml"),
     }
     result = _run_python(script, tmp_path, env=env)
-    assert result.stdout.splitlines()[-1] == "False"
-    assert recorder.posts == []
+    assert "False" in result.stdout.splitlines()
+    # Neither run reached the discovered targets, with or without an option given.
+    assert recorder.paths() == ["/inline"]
