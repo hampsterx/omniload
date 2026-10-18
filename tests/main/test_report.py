@@ -273,6 +273,31 @@ def test_non_identifier_table_names_render_by_position(tmp_path):
     assert "jane" not in report.as_text()
 
 
+@pytest.mark.parametrize(
+    ("dest_table", "rows", "failed"),
+    [
+        ("out.t", (("b", 2), ("c", 1)), ("a", "b")),
+        (
+            f"out.t?token={SECRET}",
+            (("table 2", 2), ("table 3", 1)),
+            ("table 1", "table 2"),
+        ),
+    ],
+)
+def test_rows_and_failed_jobs_share_one_numbering(tmp_path, dest_table, rows, failed):
+    """A table only in rows, only in failed jobs, or in both gets one label in each."""
+    info = _with_row_counts(tmp_path, {"b": 2, "c": 1})
+    jobs = [
+        SimpleNamespace(job_file_info=SimpleNamespace(table_name=name))
+        for name in ("a", "b")
+    ]
+    info = info._replace(load_packages=[SimpleNamespace(jobs={"failed_jobs": jobs})])
+    report = build(_request(dest_table=dest_table), _now(), _now(), load_info=info)
+    assert report.rows == rows
+    assert report.failed_job_tables == failed
+    _assert_no_secret(report)
+
+
 def test_only_dlt_own_tables_are_dropped(tmp_path):
     """dlt's fixed tables are dropped by name, not by a `_dlt_` prefix a selector can hit."""
     info = _with_row_counts(
