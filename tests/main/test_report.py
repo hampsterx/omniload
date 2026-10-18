@@ -355,9 +355,45 @@ def test_defaulted_dest_table_names_rows_by_position(tmp_path):
     assert report.destination.table == "sql (custom selector)"
     _assert_no_secret(report)
 
-    # Control: an explicit dest table keeps dlt's table names.
+    # Control: an explicit plain dest table keeps dlt's table names.
     named = build(_request(dest_table="out.t"), started_at, _now(), load_info=info)
     assert named.rows == ((f"sel_{SECRET}".lower(), 3),)
+
+
+def test_explicit_dest_table_with_a_stripped_part_names_tables_by_position(
+    tmp_path, monkeypatch
+):
+    """An explicit destination selector's `?` part reaches dlt's table names too."""
+    monkeypatch.setenv("LOAD__RAISE_ON_FAILED_JOBS", "false")
+    pipeline = _pipeline(tmp_path, dlt.destinations.dummy(fail_prob=1.0))
+    started_at = _now()
+    # What dlt makes of `out.events?token=...` once omniload hands it the table part.
+    info = pipeline.run(_three_rows(), table_name=f"events?token={SECRET}")
+    request = _request(dest_table=f"out.events?token={SECRET}")
+    report = build(request, started_at, _now(), load_info=info)
+
+    assert report.destination.table == "out.events"
+    assert report.rows == (("table 1", 3),)
+    assert report.failed_job_tables == ("table 1", "table 2")
+    _assert_no_secret(report)
+
+
+def test_step_info_passed_as_load_info_still_has_no_failed_jobs(tmp_path):
+    """The pre-load snapshot gives no failed-job count, however the caller passes it."""
+    pipeline = _pipeline(tmp_path, dlt.destinations.dummy(fail_prob=1.0))
+    started_at = _now()
+    with pytest.raises(PipelineStepFailed) as excinfo:
+        pipeline.run(_three_rows())
+    report = build(
+        _request(),
+        started_at,
+        _now(),
+        load_info=excinfo.value.step_info,
+        exception=excinfo.value,
+    )
+    assert report.load_package_count == 1
+    assert report.failed_job_count is None
+    assert report.failed_job_tables is None
 
 
 @pytest.mark.parametrize(

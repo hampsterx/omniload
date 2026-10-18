@@ -236,7 +236,10 @@ def build(
     # The `LoadInfo` a load-step `PipelineStepFailed` carries is taken before its jobs
     # ran (package still "normalized", every job "new"), so it gives a package count but
     # no failed-job count: reporting its zero would understate a failed load.
-    jobs_known = load_info is not None
+    # That holds when the caller passes it as `load_info` too.
+    jobs_known = load_info is not None and not (
+        step_failure is not None and load_info is step_failure.step_info
+    )
     if load_info is None and step_failure is not None:
         if isinstance(step_failure.step_info, LoadInfo):
             load_info = step_failure.step_info
@@ -250,9 +253,11 @@ def build(
         scheme=render_scheme(request.dest_uri),
         table=source.table if dest_defaulted else render_selector(request.dest_table),
     )
-    # dlt names a defaulted destination table after the source selector, so when the
-    # selector had anything stripped from it, dlt's table names carry that payload too.
-    positional = dest_defaulted and request.source_table not in (None, source.table)
+    # dlt names the table after the destination selector (the source selector when it
+    # defaulted), normalising whatever the rendering dropped into an identifier: a
+    # `?token=...` or a query payload. Name tables by position whenever it dropped any.
+    dest_selector = request.source_table if dest_defaulted else request.dest_table
+    positional = dest_selector is not None and destination.table != dest_selector
 
     pipeline = None
     if load_info is not None:
