@@ -12,8 +12,9 @@ field is drawn from an allowlist and nothing free-form is copied in:
   payload is a query or carries values. A plain path or glob selector is kept as given.
 - dlt's table names (row counts, failed jobs) are shown when they are plain
   identifiers and the destination selector was not redacted, otherwise by position
-  (``table 1``). Nested tables are named after the data's own keys, so those keys can
-  appear; they are data, not credentials.
+  (``table 1``). Nested tables are named after the data's own keys, and a spreadsheet
+  source names one table per worksheet, so keys and sheet names can appear; they are
+  data, not credentials.
 - Exceptions are reported by type only. Their messages, dlt's failed-job messages and
   ``str(LoadInfo)`` all embed arbitrary text, including credentials, and are left out.
 

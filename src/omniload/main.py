@@ -13,6 +13,7 @@ from omniload.error import IngestJobError, ValidationError
 from omniload.model import (
     IncrementalStrategy,
     LoaderFileFormat,
+    NotifyOn,
     Progress,
     SchemaNaming,
     SqlBackend,
@@ -298,6 +299,31 @@ def ingest(
             envvar=["RESHAPE", "OMNILOAD_RESHAPE"],
         ),
     ] = None,
+    notify: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Apprise URL to send the job report to when the run ends, success "
+            "or failure. Can be specified multiple times. Needs omniload[notify].",
+            envvar=["OMNILOAD_NOTIFY"],
+        ),
+    ] = None,
+    notify_config: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            help="Apprise config file or URL whose entries receive the job report, "
+            "routed by their tags: 'success', 'failure' or 'always'. Untagged "
+            "entries receive nothing. Can be specified multiple times.",
+            envvar=["OMNILOAD_NOTIFY_CONFIG"],
+        ),
+    ] = None,
+    notify_on: Annotated[
+        NotifyOn,
+        typer.Option(
+            help="Which outcomes send the job report, to every target: 'always' or "
+            "'failure'.",
+            envvar=["OMNILOAD_NOTIFY_ON"],
+        ),
+    ] = NotifyOn.always,
 ):
     setup_logging()
     try:
@@ -333,6 +359,9 @@ def ingest(
             staging_bucket=staging_bucket,
             mask=mask,
             reshape=reshape,
+            notify=notify,
+            notify_config=notify_config,
+            notify_on=notify_on,
         )
     except ValidationError as e:
         logger.error("Validation failed: %s", e)

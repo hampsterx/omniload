@@ -12,10 +12,12 @@ Heavy imports (dlt and friends) stay inside `run_ingest` so importing this modul
 
 from __future__ import annotations
 
+import dataclasses
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from omniload.core.report import Stage
 from omniload.core.tablename import split
 from omniload.error import IngestJobError, ValidationError
 from omniload.model import (
@@ -33,7 +35,24 @@ from omniload.model import (
 if TYPE_CHECKING:
     from dlt.common.pipeline import LoadInfo
 
+    from omniload.util.notify import Notifier
+
 logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class _RunContext:
+    """How far one run got, for the job report: the wrapper alone cannot tell a setup
+    failure from a `post_load()` one, and the `LoadInfo` stays local to `_run_ingest`."""
+
+    stage: Stage = Stage.setup
+    load_info: LoadInfo | None = None
+
+
+def _mark(context: _RunContext | None, stage: Stage) -> None:
+    if context is not None:
+        context.stage = stage
+
 
 #: Run-level keyword arguments `run_ingest` passes into every source's
 #: ``dlt_source``. A source may optionally declare ``consumed_run_options()``
@@ -118,27 +137,72 @@ def run_ingest(**kwargs) -> LoadInfo | None:
     Returns ``None`` when ``dry_run`` is true (nothing is loaded). Raises
     :class:`omniload.ValidationError` for invalid parameters and
     :class:`omniload.IngestJobError` when one or more load jobs fail.
+
+    ``notify`` (apprise URLs) and ``notify_config`` (apprise config files or URLs)
+    send one job report when the run ends, filtered by ``notify_on``. Both are read
+    and checked before the load starts; a report that cannot be sent afterwards only
+    logs a warning, and never changes the return value or the exception.
     """
+    jr = LoadRequest(**kwargs)
+    if not (jr.notify or jr.notify_config):
+        return _run_ingest_in_pipelines_dir(jr)
+
+    from omniload.util.notify import Notifier
+
+    notifier = Notifier.prepare(jr)
+    if notifier is None:
+        return _run_ingest_in_pipelines_dir(jr)
+    return _run_ingest_with_notification(jr, notifier)
+
+
+def _run_ingest_with_notification(
+    jr: LoadRequest, notifier: Notifier
+) -> LoadInfo | None:
+    """Run the load, then report its terminal outcome once, success or failure."""
+    context = _RunContext()
+    started_at = datetime.now(tz=timezone.utc)
+    try:
+        load_info = _run_ingest_in_pipelines_dir(jr, context)
+    except Exception as exc:
+        # The load's own cleanup (release, staging teardown) has already run.
+        if not jr.dry_run:
+            notifier.report(
+                jr,
+                started_at,
+                exception=exc,
+                stage=context.stage,
+                load_info=context.load_info,
+            )
+        raise
+    if not jr.dry_run:
+        notifier.report(jr, started_at, load_info=load_info)
+    return load_info
+
+
+def _run_ingest_in_pipelines_dir(
+    jr: LoadRequest, context: _RunContext | None = None
+) -> LoadInfo | None:
     import tempfile
 
-    jr = LoadRequest(**kwargs)
     if jr.pipelines_dir is not None:
         return _run_ingest_with_remote_database(
-            jr, jr.pipelines_dir, is_pipelines_dir_temp=False
+            jr, jr.pipelines_dir, is_pipelines_dir_temp=False, context=context
         )
 
     with tempfile.TemporaryDirectory() as pipelines_dir:
         return _run_ingest_with_remote_database(
-            jr, pipelines_dir, is_pipelines_dir_temp=True
+            jr, pipelines_dir, is_pipelines_dir_temp=True, context=context
         )
 
 
 def _run_ingest_with_remote_database(
-    jr: LoadRequest, pipelines_dir: str, *, is_pipelines_dir_temp: bool
+    jr: LoadRequest,
+    pipelines_dir: str,
+    *,
+    is_pipelines_dir_temp: bool,
+    context: _RunContext | None = None,
 ) -> LoadInfo | None:
     """Stage a remote SQLite/DuckDB source for the complete pipeline lifetime."""
-    import dataclasses
-
     from omniload.source.sql_database.remote import (
         dry_run_database_uri,
         parse_remote_database_uri,
@@ -148,7 +212,10 @@ def _run_ingest_with_remote_database(
     remote_database = parse_remote_database_uri(jr.source_uri, jr.source_table or "")
     if remote_database is None:
         return _run_ingest(
-            jr, pipelines_dir, is_pipelines_dir_temp=is_pipelines_dir_temp
+            jr,
+            pipelines_dir,
+            is_pipelines_dir_temp=is_pipelines_dir_temp,
+            context=context,
         )
 
     if jr.dry_run:
@@ -157,9 +224,11 @@ def _run_ingest_with_remote_database(
             dataclasses.replace(jr, source_uri=dry_run_database_uri(remote_database)),
             pipelines_dir,
             is_pipelines_dir_temp=is_pipelines_dir_temp,
+            context=context,
         )
 
     staging_root = jr.remote_database_staging_root or pipelines_dir
+    _mark(context, Stage.staging)
     with stage_remote_database(
         remote_database, staging_root=staging_root
     ) as staged_source_uri:
@@ -168,12 +237,19 @@ def _run_ingest_with_remote_database(
             staged_request,
             pipelines_dir,
             is_pipelines_dir_temp=is_pipelines_dir_temp,
+            context=context,
         )
 
 
 def _run_ingest(
-    jr: LoadRequest, pipelines_dir: str, *, is_pipelines_dir_temp: bool
+    jr: LoadRequest,
+    pipelines_dir: str,
+    *,
+    is_pipelines_dir_temp: bool,
+    context: _RunContext | None = None,
 ) -> LoadInfo | None:
+    _mark(context, Stage.setup)
+
     import hashlib
     import time
     from typing import Any, Dict, Optional
@@ -834,6 +910,7 @@ def _run_ingest(
     # load fails we must release the source (without acking) so the batches redeliver; ordinary
     # sources have no such hooks and the getattr calls are no-ops for them. Nothing touches the
     # broker before this point, so the transform registration above need not be guarded.
+    _mark(context, Stage.load)
     try:
         max_retries = 3
         for attempt in range(max_retries):
@@ -850,11 +927,15 @@ def _run_ingest(
                     continue
                 raise
 
+        if context is not None:
+            context.load_info = run_info
         report_errors(run_info)
 
+        _mark(context, Stage.destination_post_load)
         destination.post_load()
 
         # Let the source commit, now that the load is durably committed (e.g. mq-bridge ack).
+        _mark(context, Stage.source_post_load)
         getattr(source, "post_load", lambda: None)()
     except BaseException:
         # Load failed: release the source without committing, so it redelivers.

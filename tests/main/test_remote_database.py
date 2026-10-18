@@ -210,7 +210,7 @@ def test_run_ingest_keeps_staged_database_through_pipeline_and_cleans_it_up(
     mocker.patch("dlt_filesystem.staging._filesystem_for", return_value=filesystem)
     staged_paths = []
 
-    def fake_run(jr, pipelines_dir, *, is_pipelines_dir_temp):
+    def fake_run(jr, pipelines_dir, *, is_pipelines_dir_temp, context=None):
         staged_url = make_url(jr.source_uri)
         assert staged_url.drivername == "duckdb"
         staged_path = staged_url.database
@@ -276,7 +276,7 @@ def test_run_ingest_cleans_staged_database_up_when_pipeline_fails(tmp_path, mock
     filesystem.pipe_file("bucket/path/database.duckdb", b"\x00" * 8 + b"DUCK")
     mocker.patch("dlt_filesystem.staging._filesystem_for", return_value=filesystem)
 
-    def fail_run(jr, pipelines_dir, *, is_pipelines_dir_temp):
+    def fail_run(jr, pipelines_dir, *, is_pipelines_dir_temp, context=None):
         staged_path = make_url(jr.source_uri).database
         assert staged_path is not None
         assert Path(staged_path).exists()
