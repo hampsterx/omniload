@@ -66,6 +66,7 @@ getting-started/incremental-loading
 getting-started/sql-backends
 getting-started/data-masking
 getting-started/reshape-transforms
+getting-started/notifications
 supported-sources/index
 ```
 

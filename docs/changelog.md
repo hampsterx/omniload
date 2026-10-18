@@ -4,6 +4,17 @@
 
 - Extract fragments of code into dedicated package [dlt-filesystem].
 
+- **Notifications: a job report through Apprise when a run ends.** `--notify
+  <apprise-url>` and `--notify-config <path-or-url>`, both repeatable, send one
+  short report per run, for its final outcome, to any target Apprise supports.
+  Inline URLs receive every report, config entries route by their tags
+  (`success`, `failure`, `always`), and `--notify-on failure` keeps a job quiet
+  while it works. Every target is checked before the load starts, and a report
+  that cannot be sent afterwards only logs a warning. The report names schemes,
+  stages and exception types, never URIs, query text or error messages. Install
+  `omniload[notify]`; `run_ingest` takes the same options as `notify`,
+  `notify_config` and `notify_on`. See [Notifications].
+
 ## 2026/09/27 v0.19.0
 
 - **Filesystem: `dlt-filesystem` declares what it imports.** A standalone
@@ -559,4 +570,5 @@
 
 [dlt-filesystem]: https://github.com/dlt-contrib/dlt-filesystem
 [ingestr v0.14.155]: https://github.com/bruin-data/ingestr/tree/v0.14.155
+[Notifications]: getting-started/notifications.md
 [SCD2]: https://en.wikipedia.org/wiki/Slowly_changing_dimension#Type_2:_add_new_row

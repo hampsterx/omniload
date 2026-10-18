@@ -50,3 +50,7 @@ AppsFlyer
 serverless
 ODBC
 DuckDB
+Apprise
+[Cc]onfig
+cron
+ntfy
