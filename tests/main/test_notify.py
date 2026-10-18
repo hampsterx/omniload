@@ -391,6 +391,8 @@ def test_failures_after_setup_release_first_and_name_the_stage(
     payload = recorder.posts[0][1]
     assert len(recorder.posts) == 1
     assert f"Stage: `{stage}`" in payload["message"]
+    if stage in ("extract", "normalize"):
+        assert "Rows normalized: unavailable" in payload["message"]
     if stage.endswith("post_load"):
         # The load itself committed, so the report carries what it loaded.
         assert "Load packages: 1" in payload["message"]
@@ -1248,18 +1250,22 @@ def test_a_plugin_raising_a_base_exception_changes_nothing(
         with pytest.raises(NoSuchTableError):
             run_ingest(**_missing_table(tmp_path), notify=[f"{scheme}://x"])
     assert info is not None
+    failed = f"Sending the job report failed: {type(raised).__name__}"
+    assert caplog.messages.count(failed) == 2
 
 
 def test_a_failure_inside_report_itself_changes_nothing(
-    recorder, csv_load, tmp_path, monkeypatch
+    recorder, csv_load, tmp_path, monkeypatch, caplog
 ):
     def raising_build(*args, **kwargs):
         raise SystemExit(7)
 
     monkeypatch.setattr(notify_module, "build", raising_build)
-    assert run_ingest(**csv_load, notify=[recorder.url()]) is not None
-    with pytest.raises(NoSuchTableError):
-        run_ingest(**_missing_table(tmp_path), notify=[recorder.url()])
+    with caplog.at_level(logging.WARNING, logger="omniload"):
+        assert run_ingest(**csv_load, notify=[recorder.url()]) is not None
+        with pytest.raises(NoSuchTableError):
+            run_ingest(**_missing_table(tmp_path), notify=[recorder.url()])
+    assert caplog.messages.count("Sending the job report failed: SystemExit") == 2
 
 
 def test_a_keyboard_interrupt_while_sending_still_interrupts(csv_load):
