@@ -2,6 +2,7 @@ import dataclasses
 import datetime as dt
 import sqlite3
 import uuid
+from types import SimpleNamespace
 
 import dlt
 import pytest
@@ -253,6 +254,51 @@ def test_trace_that_cannot_be_read_is_unavailable(tmp_path):
     assert report.rows is None
 
 
+def _with_row_counts(tmp_path, row_counts: dict[str, int]):
+    """A real `LoadInfo` whose pipeline reports a trace with these row counts."""
+    pipeline = _pipeline(tmp_path, _duckdb(tmp_path))
+    info = pipeline.run(_three_rows())
+    trace = SimpleNamespace(
+        started_at=_now() + dt.timedelta(days=1),
+        last_normalize_info=SimpleNamespace(row_counts=row_counts),
+    )
+    return info._replace(pipeline=SimpleNamespace(last_trace=trace))
+
+
+def test_non_identifier_table_names_render_by_position(tmp_path):
+    """Names dlt did not reduce to an identifier (direct naming) are not shown."""
+    info = _with_row_counts(tmp_path, {"t": 1, "t▶contact jane@example.com": 2})
+    report = build(_request(), _now(), _now(), load_info=info)
+    assert report.rows == (("t", 1), ("table 2", 2))
+    assert "jane" not in report.as_text()
+
+
+def test_only_dlt_own_tables_are_dropped(tmp_path):
+    """dlt's fixed tables are dropped by name, not by a `_dlt_` prefix a selector can hit."""
+    info = _with_row_counts(
+        tmp_path,
+        {"_dlt_loads": 1, "_dlt_pipeline_state": 1, "_dlt_version": 1, "_dlt_x": 4},
+    )
+    report = build(_request(), _now(), _now(), load_info=info)
+    assert report.rows == (("_dlt_x", 4),)
+
+
+def test_unexpected_exception_class_names_are_not_shown():
+    oddly_named = type("Token SENTINEL7f3a!", (Exception,), {})
+    report = build(
+        _request(), _now(), _now(), exception=oddly_named(), stage=Stage.setup
+    )
+    assert report.exception_type == "unknown"
+    _assert_no_secret(report)
+
+
+def test_unexpected_version_strings_are_not_shown(monkeypatch):
+    monkeypatch.setattr(omniload, "__version__", f"1.0 <{SECRET}>")
+    report = build(_request(), _now(), _now())
+    assert report.omniload_version == "unknown"
+    _assert_no_secret(report)
+
+
 def test_normalize_with_no_data_tables(tmp_path):
     """Normalize ran but produced only dlt's own tables: no data tables, not unavailable."""
 
@@ -377,8 +423,10 @@ def test_explicit_dest_table_with_a_stripped_part_names_tables_by_position(
     report = build(request, started_at, _now(), load_info=info)
 
     assert report.destination.table == "out.events"
+    # One numbering for both lists: `table 1` is the same table in each, and dlt's
+    # own state table keeps its name.
     assert report.rows == (("table 1", 3),)
-    assert report.failed_job_tables == ("table 1", "table 2")
+    assert report.failed_job_tables == ("_dlt_pipeline_state", "table 1")
     _assert_no_secret(report)
 
 

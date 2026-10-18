@@ -8,9 +8,12 @@ field is drawn from an allowlist and nothing free-form is copied in:
 - URIs are reduced to their scheme. Credentials, hosts and paths never appear.
 - Table selectors keep only their leading identifier. A selector with a payload
   (``query:<SQL>``, ``sql:<SQL>``, ``collection:<query JSON>``, ``custom:<fields>``
-  and the like)
-  or a ``?``/``#`` part is rendered as a custom selector, because the payload is a query
-  or carries values.
+  and the like) or a ``?``/``#`` part is rendered as a custom selector, because the
+  payload is a query or carries values. A plain path or glob selector is kept as given.
+- dlt's table names (row counts, failed jobs) are shown when they are plain
+  identifiers and the destination selector was not redacted, otherwise by position
+  (``table 1``). Nested tables are named after the data's own keys, so those keys can
+  appear; they are data, not credentials.
 - Exceptions are reported by type only. Their messages, dlt's failed-job messages and
   ``str(LoadInfo)`` all embed arbitrary text, including credentials, and are left out.
 
@@ -88,10 +91,6 @@ class Endpoint:
     scheme: str
     table: str | None
 
-    def label(self) -> str:
-        """Return ``scheme`` or ``scheme / table`` for plain text."""
-        return self.scheme if self.table is None else f"{self.scheme} / {self.table}"
-
 
 @dataclasses.dataclass(frozen=True)
 class JobReport:
@@ -101,7 +100,8 @@ class JobReport:
 
     - ``status``: success, or failure when the run raised.
     - ``source``, ``destination``: scheme and rendered table selector (see `Endpoint`).
-      No URI, credential, host, path, query text or selector payload.
+      No URI, credential, host, query text or selector payload; a plain path or glob
+      selector is kept as given.
     - ``started_at``, ``finished_at``: timezone-aware wall-clock bounds of the whole
       invocation, remote staging included.
     - ``omniload_version``: the installed distribution version.
@@ -110,13 +110,14 @@ class JobReport:
     - ``exception_type``: the raised exception's class name, plus the wrapped
       exception's class for dlt's ``PipelineStepFailed``. Never its message.
     - ``rows``: rows **normalized** per table (dlt's normalize metrics, not rows
-      committed), dlt's own ``_dlt_*`` tables dropped. `None` when no normalize info
-      exists for this run; an empty tuple when normalize ran and produced no data
-      tables.
+      committed), dlt's own state, loads and version tables dropped. `None` when no
+      normalize info exists for this run; an empty tuple when normalize ran and
+      produced no data tables.
     - ``load_package_count``, ``failed_job_count``: `None` when no `LoadInfo` or
       failed-job list is known.
     - ``failed_job_tables``: table names of failed jobs, sorted, no messages; `None`
-      alongside ``failed_job_count``.
+      alongside ``failed_job_count``. A positional name (``table 2``) means the same
+      table here as in ``rows``.
     """
 
     status: Status
@@ -271,7 +272,7 @@ def build(
         pipeline = load_info.pipeline
     elif step_failure is not None:
         pipeline = step_failure.pipeline
-    rows = _rows(pipeline, started_at, positional=positional)
+    row_counts = _row_counts(pipeline, started_at)
 
     package_count = None
     failed_jobs: list[Any] | None = None
@@ -286,13 +287,26 @@ def build(
     elif isinstance(exception, IngestJobError):
         failed_jobs = list(exception.failed_jobs)
 
-    failed_tables = None
+    failed_names = None
     if failed_jobs is not None:
-        names = sorted({job.job_file_info.table_name for job in failed_jobs})
-        failed_tables = tuple(
-            _table_name(name, index, positional=positional)
-            for index, name in enumerate(names, start=1)
-        )
+        failed_names = sorted({job.job_file_info.table_name for job in failed_jobs})
+
+    # One numbering over every data table either list names, so `table 2` is the same
+    # table in both. dlt's own tables keep their fixed names.
+    internal = _dlt_tables()
+    data_names = sorted(
+        set(row_counts or ())
+        | {name for name in failed_names or () if name not in internal}
+    )
+    labels = {name: name for name in internal}
+    for index, name in enumerate(data_names, start=1):
+        labels[name] = _table_name(name, index, positional=positional)
+    rows = None
+    if row_counts is not None:
+        rows = tuple((labels[name], row_counts[name]) for name in sorted(row_counts))
+    failed_tables = None
+    if failed_names is not None:
+        failed_tables = tuple(labels[name] for name in failed_names)
 
     return JobReport(
         status=Status.success if exception is None else Status.failure,
@@ -355,9 +369,18 @@ def _exception_type(exception: BaseException) -> str:
     return name(exception)
 
 
-def _rows(
-    pipeline, started_at: dt.datetime, *, positional: bool
-) -> tuple[tuple[str, int], ...] | None:
+def _dlt_tables() -> frozenset[str]:
+    """Return the names of the tables dlt keeps for itself."""
+    from dlt.common.schema.typing import (
+        LOADS_TABLE_NAME,
+        PIPELINE_STATE_TABLE_NAME,
+        VERSION_TABLE_NAME,
+    )
+
+    return frozenset({LOADS_TABLE_NAME, PIPELINE_STATE_TABLE_NAME, VERSION_TABLE_NAME})
+
+
+def _row_counts(pipeline, started_at: dt.datetime) -> dict[str, int] | None:
     """Return this run's rows normalized per data table, or `None` if unknown."""
     if pipeline is None:
         return None
@@ -373,13 +396,9 @@ def _rows(
     normalize_info = trace.last_normalize_info
     if normalize_info is None:
         return None
-    names = sorted(
-        name for name in normalize_info.row_counts if not name.startswith("_dlt_")
-    )
-    return tuple(
-        (
-            _table_name(name, index, positional=positional),
-            normalize_info.row_counts[name],
-        )
-        for index, name in enumerate(names, start=1)
-    )
+    internal = _dlt_tables()
+    return {
+        name: count
+        for name, count in normalize_info.row_counts.items()
+        if name not in internal
+    }
