@@ -48,13 +48,16 @@ def test_project_source_parameterizes_incremental_annotations():
     matches = []
     for path in source_root.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.arg) and node.annotation is not None:
-                if any(_is_bare_incremental(sub) for sub in ast.walk(node.annotation)):
-                    if not any(
-                        isinstance(sub, ast.Subscript)
-                        and _is_bare_incremental(sub.value)
-                        for sub in ast.walk(node.annotation)
-                    ):
-                        matches.append(f"{path.relative_to(source_root)}:{node.lineno}")
+            if (
+                not isinstance(node, (ast.arg, ast.AnnAssign))
+                or node.annotation is None
+            ):
+                continue
+            if any(_is_bare_incremental(sub) for sub in ast.walk(node.annotation)):
+                if not any(
+                    isinstance(sub, ast.Subscript) and _is_bare_incremental(sub.value)
+                    for sub in ast.walk(node.annotation)
+                ):
+                    matches.append(f"{path.relative_to(source_root)}:{node.lineno}")
 
     assert matches == []
