@@ -1284,6 +1284,8 @@ def test_config_paths_resolve_as_apprise_reads_them(
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    # Windows expands `~` from USERPROFILE and ignores HOME.
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.chdir(tmp_path)
     body = f"urls:\n  - {recorder.url('/ok')}:\n      tag: always\n"
     if form == "relative file://":
