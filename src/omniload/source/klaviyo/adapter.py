@@ -40,7 +40,10 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(datetime.start_value)),
+            cast(
+                pendulum.DateTime,
+                pendulum.parse(cast(str, datetime.start_value)),
+            ),
             pendulum.now(),
         )
 
@@ -57,7 +60,8 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated.start_value)), pendulum.now()
+            cast(pendulum.DateTime, pendulum.parse(cast(str, updated.start_value))),
+            pendulum.now(),
         )
 
         for start, end in intervals:
@@ -73,7 +77,10 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated_at.start_value)),
+            cast(
+                pendulum.DateTime,
+                pendulum.parse(cast(str, updated_at.start_value)),
+            ),
             pendulum.now(),
         )
 
@@ -92,7 +99,7 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_metrics(create_client(), updated.start_value)
+        yield from client.fetch_metrics(create_client(), cast(str, updated.start_value))
 
     @dlt.resource(write_disposition="replace", primary_key="id")
     def tags() -> Iterable[TAnyDateTime]:
@@ -111,7 +118,9 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_catalog_variant(create_client(), updated.start_value)
+        yield from client.fetch_catalog_variant(
+            create_client(), cast(str, updated.start_value)
+        )
 
     @dlt.resource(
         write_disposition="merge", primary_key="id", name="catalog-categories"
@@ -124,7 +133,9 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_catalog_categories(create_client(), updated.start_value)
+        yield from client.fetch_catalog_categories(
+            create_client(), cast(str, updated.start_value)
+        )
 
     @dlt.resource(write_disposition="merge", primary_key="id", name="catalog-items")
     def catalog_items(
@@ -135,7 +146,9 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_catalog_item(create_client(), updated.start_value)
+        yield from client.fetch_catalog_item(
+            create_client(), cast(str, updated.start_value)
+        )
 
     @dlt.resource(write_disposition="merge", primary_key="id", parallelized=True)
     def forms(
@@ -147,7 +160,10 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated_at.start_value)),
+            cast(
+                pendulum.DateTime,
+                pendulum.parse(cast(str, updated_at.start_value)),
+            ),
             pendulum.now(),
         )
 
@@ -163,7 +179,7 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_lists(create_client(), updated.start_value)
+        yield from client.fetch_lists(create_client(), cast(str, updated.start_value))
 
     @dlt.resource(write_disposition="merge", primary_key="id", parallelized=True)
     def images(
@@ -175,7 +191,10 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated_at.start_value)),
+            cast(
+                pendulum.DateTime,
+                pendulum.parse(cast(str, updated_at.start_value)),
+            ),
             pendulum.now(),
         )
         for start, end in intervals:
@@ -190,7 +209,9 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
             range_start="closed",
         ),
     ) -> Iterable[TDataItem]:
-        yield from client.fetch_segments(create_client(), updated.start_value)
+        yield from client.fetch_segments(
+            create_client(), cast(str, updated.start_value)
+        )
 
     @dlt.resource(write_disposition="merge", primary_key="id", parallelized=True)
     def flows(
@@ -202,7 +223,8 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated.start_value)), pendulum.now()
+            cast(pendulum.DateTime, pendulum.parse(cast(str, updated.start_value))),
+            pendulum.now(),
         )
         for start, end in intervals:
             yield lambda s=start, e=end: client.fetch_flows(create_client(), s, e)
@@ -217,7 +239,8 @@ def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResour
         ),
     ) -> Iterable[TDataItem]:
         intervals = split_date_range(
-            cast(pendulum.DateTime, pendulum.parse(updated.start_value)), pendulum.now()
+            cast(pendulum.DateTime, pendulum.parse(cast(str, updated.start_value))),
+            pendulum.now(),
         )
         for start, end in intervals:
             yield lambda s=start, e=end: client.fetch_templates(create_client(), s, e)
