@@ -1,7 +1,8 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
+
+from omniload.util.time import ensure_datetime_utc
 
 
 class AdjustSource:
@@ -30,14 +31,14 @@ class AdjustSource:
         )
         if kwargs.get("interval_start"):
             start_date = (
-                ensure_pendulum_datetime_utc(str(kwargs.get("interval_start")))
+                ensure_datetime_utc(str(kwargs.get("interval_start")))
                 .replace(hour=0, minute=0, second=0, microsecond=0)
                 .subtract(days=lookback_days)
             )
 
         end_date = pendulum.now()
         if kwargs.get("interval_end"):
-            end_date = ensure_pendulum_datetime_utc(str(kwargs.get("interval_end")))
+            end_date = ensure_datetime_utc(str(kwargs.get("interval_end")))
 
         from omniload.source.adjust.adapter import (
             REQUIRED_CUSTOM_DIMENSIONS,

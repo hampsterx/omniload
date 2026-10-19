@@ -19,9 +19,10 @@ from typing import Iterable, List, Optional
 import dlt
 from dlt.common import json, pendulum
 from dlt.common.configuration.specs import AwsCredentials
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import StrStr, TAnyDateTime, TDataItem
 from dlt.common.utils import digest128
+
+from omniload.util.time import ensure_datetime_utc
 
 from .helpers import get_shard_iterator, get_stream_address, max_sequence_by_shard
 
@@ -69,7 +70,7 @@ def kinesis_stream(
     initial_at_datetime = (
         None
         if initial_at_timestamp is None
-        else ensure_pendulum_datetime_utc(initial_at_timestamp)
+        else ensure_datetime_utc(initial_at_timestamp)
     )
     # set it in state
     resource_state = dlt.current.resource_state()
@@ -115,7 +116,7 @@ def kinesis_stream(
                     "kinesis": {
                         "shard_id": shard_id,
                         "seq_no": sequence_number,
-                        "ts": ensure_pendulum_datetime_utc(arrival_timestamp),
+                        "ts": ensure_datetime_utc(arrival_timestamp),
                         "partition": record["PartitionKey"],
                         "stream_name": stream_name,
                     },

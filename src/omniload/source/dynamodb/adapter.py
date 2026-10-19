@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import boto3
 import dlt
@@ -36,7 +36,7 @@ def parseSchema(table) -> TableSchema:
 def dynamodb(
     table_name: str,
     credentials: AwsCredentials,
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
 ):
     sesh = boto3.Session(
         aws_access_key_id=credentials.aws_access_key_id,
@@ -56,7 +56,7 @@ def dynamodb(
 
 def dynamodb_table(
     table,
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
 ):
     args = build_scan_args(incremental)
     scan = table.scan(**args)
@@ -68,7 +68,7 @@ def dynamodb_table(
 
 
 def build_scan_args(
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
 ):
     scan_args = {}
 

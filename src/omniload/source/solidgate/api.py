@@ -1,10 +1,10 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.extract.exceptions import ResourcesNotFoundError
 
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class SolidgateSource:
@@ -34,12 +34,12 @@ class SolidgateSource:
         if start_date is None:
             start_date = pendulum.yesterday().in_tz("UTC")
         else:
-            start_date = ensure_pendulum_datetime_utc(start_date).in_tz("UTC")
+            start_date = ensure_datetime_utc(start_date).in_tz("UTC")
 
         end_date = kwargs.get("interval_end")
 
         if end_date is not None:
-            end_date = ensure_pendulum_datetime_utc(end_date).in_tz("UTC")
+            end_date = ensure_datetime_utc(end_date).in_tz("UTC")
 
         from omniload.source.solidgate.adapter import solidgate_source
 

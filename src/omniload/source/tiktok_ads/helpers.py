@@ -1,7 +1,8 @@
 import requests
 from dlt.common import json
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.sources.helpers.requests import Client
+
+from omniload.util.time import ensure_datetime_utc
 
 BASE_URL = "https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/"
 
@@ -28,13 +29,9 @@ def flat_structure(items, timezone="UTC"):
         if "dimensions" in item:
             for key, value in item["dimensions"].items():
                 if key == "stat_time_day":
-                    item["stat_time_day"] = ensure_pendulum_datetime_utc(value).in_tz(
-                        timezone
-                    )
+                    item["stat_time_day"] = ensure_datetime_utc(value).in_tz(timezone)
                 elif key == "stat_time_hour":
-                    item["stat_time_hour"] = ensure_pendulum_datetime_utc(value).in_tz(
-                        timezone
-                    )
+                    item["stat_time_hour"] = ensure_datetime_utc(value).in_tz(timezone)
                 else:
                     item[key] = value
             del item["dimensions"]
@@ -81,8 +78,8 @@ class TikTokAPI:
                 break
 
         current_page = 1
-        start_time = ensure_pendulum_datetime_utc(start_time).to_date_string()
-        end_time = ensure_pendulum_datetime_utc(end_time).to_date_string()
+        start_time = ensure_datetime_utc(start_time).to_date_string()
+        end_time = ensure_datetime_utc(end_time).to_date_string()
 
         filtering = [
             {

@@ -1,7 +1,8 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
+
+from omniload.util.time import ensure_datetime_utc
 
 
 class LinkedInAdsSource:
@@ -24,13 +25,11 @@ class LinkedInAdsSource:
         interval_start = kwargs.get("interval_start")
         interval_end = kwargs.get("interval_end")
         start_datetime = (
-            ensure_pendulum_datetime_utc(interval_start)
+            ensure_datetime_utc(interval_start)
             if interval_start
             else pendulum.datetime(2018, 1, 1)
         )
-        end_datetime = (
-            ensure_pendulum_datetime_utc(interval_end) if interval_end else None
-        )
+        end_datetime = ensure_datetime_utc(interval_end) if interval_end else None
 
         if table.startswith("custom:"):
             account_ids = source_fields.get("account_ids")

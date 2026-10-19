@@ -2,6 +2,9 @@
 
 ## in progress
 
+- Keep datetime normalization compatible with dlt 1.31 while retaining support for
+  older dlt releases.
+
 - Extract fragments of code into dedicated package [dlt-filesystem].
 
 - **Turso, read and written.** `turso:///path/to/app.db` is an in-process file and

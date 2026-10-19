@@ -1,8 +1,7 @@
 from urllib.parse import parse_qs, urlparse
 
-from dlt.common.time import ensure_pendulum_datetime_utc
-
 from omniload.error import MissingValueError
+from omniload.util.time import ensure_datetime_utc
 
 
 class KinesisSource:
@@ -30,7 +29,7 @@ class KinesisSource:
         start_date = kwargs.get("interval_start")
         if start_date is not None:
             # the resource will read all messages after this timestamp.
-            start_date = ensure_pendulum_datetime_utc(start_date)
+            start_date = ensure_datetime_utc(start_date)
 
         from dlt.common.configuration.specs import AwsCredentials
 

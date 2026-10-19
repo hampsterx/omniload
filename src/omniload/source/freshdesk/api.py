@@ -1,9 +1,8 @@
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from dlt.common.time import ensure_pendulum_datetime_utc
-
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class FreshdeskSource:
@@ -34,13 +33,13 @@ class FreshdeskSource:
 
         start_date = kwargs.get("interval_start")
         if start_date is not None:
-            start_date = ensure_pendulum_datetime_utc(start_date).in_tz("UTC")
+            start_date = ensure_datetime_utc(start_date).in_tz("UTC")
         else:
-            start_date = ensure_pendulum_datetime_utc("2022-01-01T00:00:00Z")
+            start_date = ensure_datetime_utc("2022-01-01T00:00:00Z")
 
         end_date = kwargs.get("interval_end")
         if end_date is not None:
-            end_date = ensure_pendulum_datetime_utc(end_date).in_tz("UTC")
+            end_date = ensure_datetime_utc(end_date).in_tz("UTC")
         else:
             end_date = None
 
