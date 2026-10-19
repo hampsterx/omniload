@@ -124,7 +124,9 @@ dependencies = [
   "smartsheet-python-sdk<5",
   "snowflake-connector-python>=4.7.1,<5",
   "snowflake-sqlalchemy<2",
-  "sqlalchemy<2.2",
+  # SQLAlchemy 2.0.55 reflects PostgreSQL primary keys with a `REGCLASS` cast, which
+  # duckdb-engine (PostgreSQL dialect on DuckDB) cannot execute, so reading a DuckDB table fails.
+  "sqlalchemy<2.0.55",
   "sqlalchemy-bigquery<2",
   "sqlalchemy-cratedb<1",
   "sqlalchemy-hana<6",
