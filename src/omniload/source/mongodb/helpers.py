@@ -37,7 +37,6 @@ from bson.timestamp import Timestamp
 from dlt.common import logger
 from dlt.common.configuration.specs import BaseConfiguration, configspec
 from dlt.common.data_writers import TDataItemFormat
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import TDataItem
 from dlt.common.utils import map_nested_in_place
 from pendulum import _datetime
@@ -45,6 +44,8 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
 from pymongo.helpers_shared import _fields_list_to_dict
+
+from omniload.util.time import ensure_datetime_utc
 
 if TYPE_CHECKING:
     TMongoClient = MongoClient[Any]
@@ -787,12 +788,12 @@ def convert_mongo_objs(value: Any) -> Any:
     if isinstance(value, (ObjectId, Decimal128)):
         return str(value)
     if isinstance(value, _datetime.datetime):
-        return ensure_pendulum_datetime_utc(value)
+        return ensure_datetime_utc(value)
     if isinstance(value, Regex):
         return value.try_compile().pattern
     if isinstance(value, Timestamp):
         date = value.as_datetime()
-        return ensure_pendulum_datetime_utc(date)
+        return ensure_datetime_utc(date)
 
     return value
 

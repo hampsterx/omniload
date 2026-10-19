@@ -4,8 +4,9 @@ from typing import Any, Dict, Generator, Iterable, TypedDict
 
 import dlt
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.sources import DltResource
+
+from omniload.util.time import ensure_datetime_utc
 
 from .client import FundraiseupClient
 
@@ -24,7 +25,7 @@ def order_by_created(record) -> DonationCursor:
 
     cursor: DonationCursor = {
         "id": record["id"],
-        "created_at": ensure_pendulum_datetime_utc(record["created_at"]),
+        "created_at": ensure_datetime_utc(record["created_at"]),
     }
 
     if last_value is None:

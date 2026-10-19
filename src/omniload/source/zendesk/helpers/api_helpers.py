@@ -15,8 +15,9 @@
 from typing import Dict, Optional, TypedDict
 
 from dlt.common import logger, pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import DictStrAny, DictStrStr, TDataItem
+
+from omniload.util.time import ensure_datetime_utc
 
 
 class TCustomFieldInfo(TypedDict):
@@ -27,7 +28,7 @@ class TCustomFieldInfo(TypedDict):
 def _parse_date_or_none(value: Optional[str]) -> Optional[pendulum.DateTime]:
     if not value:
         return None
-    return ensure_pendulum_datetime_utc(value)
+    return ensure_datetime_utc(value)
 
 
 def process_ticket(

@@ -11,7 +11,8 @@ from couchbase.options import (  # type: ignore[import-untyped]
     QueryOptions,
 )
 from dlt.common.configuration import configspec
-from dlt.common.time import ensure_pendulum_datetime_utc
+
+from omniload.util.time import ensure_datetime_utc
 
 
 @configspec
@@ -122,9 +123,7 @@ def fetch_documents(
             ):
                 cursor_value = doc[incremental.cursor_path]
                 if isinstance(cursor_value, (str, datetime)):
-                    doc[incremental.cursor_path] = ensure_pendulum_datetime_utc(
-                        cursor_value
-                    )
+                    doc[incremental.cursor_path] = ensure_datetime_utc(cursor_value)
 
             yield doc
 

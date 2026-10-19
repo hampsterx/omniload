@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class FrankfurterSource:
@@ -32,12 +32,12 @@ class FrankfurterSource:
         validate_currency(base_currency)
 
         if kwargs.get("interval_start"):
-            start_date = ensure_pendulum_datetime_utc(str(kwargs.get("interval_start")))
+            start_date = ensure_datetime_utc(str(kwargs.get("interval_start")))
         else:
             start_date = pendulum.yesterday()
 
         if kwargs.get("interval_end"):
-            end_date = ensure_pendulum_datetime_utc(str(kwargs.get("interval_end")))
+            end_date = ensure_datetime_utc(str(kwargs.get("interval_end")))
         else:
             end_date = None
 

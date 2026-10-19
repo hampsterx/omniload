@@ -3,13 +3,13 @@ from typing import Iterable, cast
 import dlt
 import pendulum
 import requests
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import TAnyDateTime, TDataItem
 from dlt.sources import DltResource
 from dlt.sources.helpers.requests import Client
 
 from omniload.source.klaviyo.client import KlaviyoClient
 from omniload.source.klaviyo.helpers import split_date_range
+from omniload.util.time import ensure_datetime_utc
 
 
 def retry_on_limit(response: requests.Response, exception: BaseException) -> bool:
@@ -27,7 +27,7 @@ def create_client() -> requests.Session:
 
 @dlt.source(max_table_nesting=0)
 def klaviyo_source(api_key: str, start_date: TAnyDateTime) -> Iterable[DltResource]:
-    start_date_obj = ensure_pendulum_datetime_utc(start_date)
+    start_date_obj = ensure_datetime_utc(start_date)
     client = KlaviyoClient(api_key)
 
     @dlt.resource(write_disposition="merge", primary_key="id", parallelized=True)

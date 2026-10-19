@@ -1,8 +1,7 @@
 from typing import Callable
 
-from dlt.common.time import ensure_pendulum_datetime_utc
-
 from omniload.core.tablename import TableName, prefix_split
+from omniload.util.time import ensure_datetime_utc
 
 MONGODB_TABLE_CAPABILITY = prefix_split("mongodb", ("database", "collection"))
 
@@ -167,7 +166,7 @@ class MongoDbSource:
         # Convert string dates to datetime objects if needed
         if interval_start is not None:
             if isinstance(interval_start, str):
-                pendulum_dt = ensure_pendulum_datetime_utc(interval_start)
+                pendulum_dt = ensure_datetime_utc(interval_start)
                 interval_start = (
                     pendulum_dt.to_datetime_string()
                     if hasattr(pendulum_dt, "to_datetime_string")
@@ -178,7 +177,7 @@ class MongoDbSource:
 
         if interval_end is not None:
             if isinstance(interval_end, str):
-                pendulum_dt = ensure_pendulum_datetime_utc(interval_end)
+                pendulum_dt = ensure_datetime_utc(interval_end)
                 interval_end = (
                     pendulum_dt.to_datetime_string()
                     if hasattr(pendulum_dt, "to_datetime_string")

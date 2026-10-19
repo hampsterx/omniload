@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import MissingValueError
+from omniload.util.time import ensure_datetime_utc
 
 
 class WiseSource:
@@ -25,13 +25,13 @@ class WiseSource:
 
         start_date = kwargs.get("interval_start")
         if start_date:
-            start_date = ensure_pendulum_datetime_utc(start_date).in_timezone("UTC")
+            start_date = ensure_datetime_utc(start_date).in_timezone("UTC")
         else:
             start_date = pendulum.datetime(2020, 1, 1).in_timezone("UTC")
 
         end_date = kwargs.get("interval_end")
         if end_date:
-            end_date = ensure_pendulum_datetime_utc(end_date).in_timezone("UTC")
+            end_date = ensure_datetime_utc(end_date).in_timezone("UTC")
         else:
             end_date = None
 

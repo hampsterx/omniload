@@ -1,7 +1,8 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
+
+from omniload.util.time import ensure_datetime_utc
 
 
 class RedditAdsSource:
@@ -46,14 +47,12 @@ class RedditAdsSource:
             interval_start = kwargs.get("interval_start")
             interval_end = kwargs.get("interval_end")
             start_date = (
-                ensure_pendulum_datetime_utc(interval_start).date()
+                ensure_datetime_utc(interval_start).date()
                 if interval_start
                 else pendulum.date(2020, 1, 1)
             )
             end_date = (
-                ensure_pendulum_datetime_utc(interval_end).date()
-                if interval_end
-                else None
+                ensure_datetime_utc(interval_end).date() if interval_end else None
             )
 
             from omniload.source.reddit_ads.adapter import reddit_ads_analytics_source
