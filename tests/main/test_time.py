@@ -48,6 +48,11 @@ def test_ensure_datetime_utc(value, expected):
     assert result.tzinfo is pendulum.UTC
 
 
+def test_ensure_datetime_utc_rejects_invalid_value():
+    with pytest.raises(ValueError):
+        ensure_datetime_utc("03:04:05")
+
+
 def test_ensure_datetime_utc_ignores_dlt_context_timezone():
     dlt_time = importlib.import_module("dlt.common.time")
     get_context_timezone = getattr(dlt_time, "get_context_timezone", None)

@@ -4,7 +4,7 @@ import time
 from typing import Any, Iterable, Optional, Tuple
 
 from dlt.common.pendulum import pendulum
-from dlt.common.typing import Dict, TDataItems
+from dlt.common.typing import Dict, TAnyDateTime, TDataItems
 from dlt.sources.helpers import requests
 from pyrate_limiter import Duration, Limiter, Rate
 from requests.auth import HTTPBasicAuth
@@ -88,7 +88,7 @@ class GorgiasApi:
         self,
         resource: str,
         params: Optional[Dict[str, Any]] = None,
-        start_date: Optional[str] = None,
+        start_date: Optional[TAnyDateTime] = None,
         end_date: Optional[pendulum.DateTime] = None,
     ) -> Iterable[TDataItems]:
         """Get all pages from Gorgias using requests.
@@ -159,7 +159,7 @@ class GorgiasApi:
     def __filter_items_in_range(
         self,
         items: list[Dict[str, Any]],
-        start_date: Optional[str],
+        start_date: Optional[TAnyDateTime],
         end_date: Optional[pendulum.DateTime],
     ) -> list[Dict[str, Any]]:
         start_date_obj = ensure_datetime_utc(start_date) if start_date else None
