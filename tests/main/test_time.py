@@ -69,11 +69,13 @@ def test_ensure_datetime_utc_ignores_dlt_context_timezone():
         set_context_timezone(previous_timezone)
 
 
-def test_sources_do_not_use_removed_dlt_datetime_helper():
-    source_root = Path(__file__).parents[2] / "src" / "omniload" / "source"
+def test_project_source_does_not_use_removed_dlt_datetime_helper():
+    source_root = Path(__file__).parents[2] / "src" / "omniload"
+    compatibility_module = source_root / "util" / "time.py"
     matches = [
         path.relative_to(source_root)
         for path in source_root.rglob("*.py")
+        if path != compatibility_module
         if "ensure_pendulum_datetime_utc" in path.read_text()
     ]
 
