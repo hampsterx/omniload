@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class AnthropicSource:
@@ -35,14 +35,14 @@ class AnthropicSource:
         # Get start and end dates from kwargs
         start_date = kwargs.get("interval_start")
         if start_date:
-            start_date = ensure_pendulum_datetime_utc(start_date)
+            start_date = ensure_datetime_utc(start_date)
         else:
             # Default to 2023-01-01
             start_date = pendulum.datetime(2023, 1, 1)
 
         end_date = kwargs.get("interval_end")
         if end_date:
-            end_date = ensure_pendulum_datetime_utc(end_date)
+            end_date = ensure_datetime_utc(end_date)
         else:
             end_date = None
 

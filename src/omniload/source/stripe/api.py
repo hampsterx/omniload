@@ -1,7 +1,7 @@
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
-from dlt.common.time import ensure_pendulum_datetime_utc
+from omniload.util.time import ensure_datetime_utc
 
 
 class StripeAnalyticsSource:
@@ -55,7 +55,7 @@ class StripeAnalyticsSource:
 
             def nullable_date(date_str: Optional[str]):
                 if date_str:
-                    return ensure_pendulum_datetime_utc(date_str)
+                    return ensure_datetime_utc(date_str)
                 return None
 
             endpoint = ENDPOINTS[endpoint]

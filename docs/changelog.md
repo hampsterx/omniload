@@ -2,6 +2,9 @@
 
 ## in progress
 
+- Keep datetime normalization compatible with dlt 1.31 while retaining support for
+  older dlt releases.
+
 - Extract fragments of code into dedicated package [dlt-filesystem].
 
 ## 2026/09/27 v0.19.0

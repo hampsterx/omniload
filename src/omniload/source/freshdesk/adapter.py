@@ -19,8 +19,9 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 
 import dlt
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.sources import DltResource
+
+from omniload.util.time import ensure_datetime_utc
 
 from .client import FreshdeskClient
 from .settings import DEFAULT_ENDPOINTS
@@ -73,10 +74,10 @@ def freshdesk_source(
 
         effective_start_date = start_date
         if updated_at is not None and updated_at.last_value is not None:
-            effective_start_date = ensure_pendulum_datetime_utc(updated_at.last_value)
+            effective_start_date = ensure_datetime_utc(updated_at.last_value)
 
         if updated_at is not None and updated_at.end_value is not None:
-            end_date = ensure_pendulum_datetime_utc(updated_at.end_value)
+            end_date = ensure_datetime_utc(updated_at.end_value)
         else:
             end_date = pendulum.now(tz="UTC")
 

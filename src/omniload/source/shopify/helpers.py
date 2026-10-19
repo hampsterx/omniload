@@ -18,9 +18,10 @@ from typing import Any, Iterable, Literal, Optional
 from urllib.parse import urljoin
 
 from dlt.common import jsonpath
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import Dict, DictStrAny, TDataItems
 from dlt.sources.helpers import requests
+
+from omniload.util.time import ensure_datetime_utc
 
 from .exceptions import ShopifyPartnerApiError
 from .settings import DEFAULT_API_VERSION, DEFAULT_PARTNER_API_VERSION
@@ -45,7 +46,7 @@ def convert_datetime_fields(item: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(obj, dict):
             for key, value in obj.items():
                 if key in fields and isinstance(value, str):
-                    obj[key] = ensure_pendulum_datetime_utc(value)
+                    obj[key] = ensure_datetime_utc(value)
                 else:
                     obj[key] = convert_nested(value)
         elif isinstance(obj, list):

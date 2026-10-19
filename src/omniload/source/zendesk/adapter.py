@@ -21,11 +21,11 @@ from typing import Iterable, Iterator, Optional, Union
 
 import dlt
 from dlt.common import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import TAnyDateTime, TDataItem, TDataItems
 from dlt.sources import DltResource
 
 from omniload.error import MissingValueError
+from omniload.util.time import ensure_datetime_utc
 
 from .helpers.api_helpers import process_ticket, process_ticket_field
 from .helpers.credentials import (
@@ -69,8 +69,8 @@ def zendesk_talk(
 
     # use the credentials to authenticate with the ZendeskClient
     zendesk_client = ZendeskAPIClient(credentials)
-    start_date_obj = ensure_pendulum_datetime_utc(start_date)
-    end_date_obj = ensure_pendulum_datetime_utc(end_date) if end_date else None
+    start_date_obj = ensure_datetime_utc(start_date)
+    end_date_obj = ensure_datetime_utc(end_date) if end_date else None
 
     # regular endpoints
     for key, talk_endpoint, item_name, cursor_paginated in TALK_ENDPOINTS:
@@ -155,11 +155,7 @@ def talk_incremental_resource(
         talk_endpoint,
         talk_endpoint_name,
         PaginationType.START_TIME,
-        params={
-            "start_time": ensure_pendulum_datetime_utc(
-                updated_at.last_value
-            ).int_timestamp
-        },
+        params={"start_time": ensure_datetime_utc(updated_at.last_value).int_timestamp},
     ):
         yield page
         if updated_at.end_out_of_range:
@@ -192,8 +188,8 @@ def zendesk_chat(
 
     # Authenticate
     zendesk_client = ZendeskAPIClient(credentials, url_prefix="https://www.zopim.com")
-    start_date_obj = ensure_pendulum_datetime_utc(start_date)
-    end_date_obj = ensure_pendulum_datetime_utc(end_date) if end_date else None
+    start_date_obj = ensure_datetime_utc(start_date)
+    end_date_obj = ensure_datetime_utc(end_date) if end_date else None
 
     yield dlt.resource(chats_table_resource, name="chats", write_disposition="merge")(
         zendesk_client,
@@ -228,7 +224,7 @@ def chats_table_resource(
         "chats",
         PaginationType.START_TIME,
         params={
-            "start_time": ensure_pendulum_datetime_utc(
+            "start_time": ensure_datetime_utc(
                 update_timestamp.last_value
             ).int_timestamp,
             "fields": "chats(*)",
@@ -272,8 +268,8 @@ def zendesk_support(
     if start_date is None:
         raise MissingValueError("start_date", "Zendesk")
 
-    start_date_obj = ensure_pendulum_datetime_utc(start_date)
-    end_date_obj = ensure_pendulum_datetime_utc(end_date) if end_date else None
+    start_date_obj = ensure_datetime_utc(start_date)
+    end_date_obj = ensure_datetime_utc(end_date) if end_date else None
 
     start_date_ts = start_date_obj.int_timestamp
     start_date_iso_str = start_date_obj.isoformat()
@@ -402,9 +398,7 @@ def zendesk_support(
             "ticket_metric_events",
             PaginationType.CURSOR,
             params={
-                "start_time": ensure_pendulum_datetime_utc(
-                    time.last_value
-                ).int_timestamp,
+                "start_time": ensure_datetime_utc(time.last_value).int_timestamp,
             },
         )
         for page in metric_event_pages:
