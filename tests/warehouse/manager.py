@@ -38,7 +38,9 @@ COUCHBASE_IMAGE = "docker.io/couchbase:7.6.9"
 FLOCI_IMAGE = "docker.io/floci/floci:1.5.25"
 GCS_FAKE_SERVER_IMAGE = "docker.io/fsouza/fake-gcs-server:1.55.1"
 KAFKA_IMAGE = "docker.io/confluentinc/cp-kafka:7.6.0"
-MONGODB_IMAGE = "docker.io/mongo:8.3"
+# MongoDB 8.3 (and 8.0) refuse to start on Linux 6.19 and newer (SERVER-121912),
+# which is what the GitHub Actions Ubuntu runners now ship; 8.2 starts.
+MONGODB_IMAGE = "docker.io/mongo:8.2"
 MYSQL_IMAGE = "docker.io/mariadb:12"
 MSSQL_IMAGE = "mcr.microsoft.com/mssql/server:2025-CU6-ubuntu-24.04"
 POSTGRESQL_IMAGE = "docker.io/postgres:18-alpine"
