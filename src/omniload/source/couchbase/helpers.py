@@ -62,7 +62,7 @@ def fetch_documents(
     bucket_name: str,
     scope_name: str,
     collection_name: str,
-    incremental: Optional[dlt.sources.incremental] = None,  # type: ignore[type-arg]
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
     limit: Optional[int] = None,
     chunk_size: Optional[int] = 1000,
 ) -> Iterator[Dict[str, Any]]:

@@ -14,7 +14,7 @@ def elasticsearch_source(
     connection_url: str,
     index: str,
     verify_certs: bool,
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
 ):
     client = Elasticsearch(connection_url, verify_certs=verify_certs)
 

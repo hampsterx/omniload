@@ -882,7 +882,7 @@ def _raise_if_intersection(filter1: Dict[str, Any], filter2: Dict[str, Any]) -> 
 
 @configspec
 class MongoDbCollectionConfiguration(BaseConfiguration):
-    incremental: Optional[dlt.sources.incremental] = None
+    incremental: Optional[dlt.sources.incremental[Any]] = None
 
 
 @configspec
@@ -890,7 +890,7 @@ class MongoDbCollectionResourceConfiguration(BaseConfiguration):
     connection_url: dlt.TSecretValue = dlt.secrets.value
     database: Optional[str] = dlt.config.value
     collection: str = dlt.config.value
-    incremental: Optional[dlt.sources.incremental] = None
+    incremental: Optional[dlt.sources.incremental[Any]] = None
     write_disposition: Optional[str] = dlt.config.value
     parallel: Optional[bool] = False
     projection: Optional[Union[Mapping[str, Any], Iterable[str]]] = dlt.config.value
