@@ -133,6 +133,11 @@ Feel free to [create an issue][Issues] if you'd like to see support for another 
         <td>✅</td>
         <td>✅</td>
     </tr>
+    <tr>
+        <td>Turso</td>
+        <td>✅</td>
+        <td>✅</td>
+    </tr>
     <tr style="text-align: left;">
         <th style="width: 8em">Platform</th>
         <th style="width: 5em">Source</th>

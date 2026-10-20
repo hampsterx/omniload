@@ -43,7 +43,7 @@ def source(
         primary_key=primary_key,  # ty: ignore[invalid-argument-type]
     )
     def dataset(
-        incremental: Optional[dlt.sources.incremental] = incremental,
+        incremental: Optional[dlt.sources.incremental[Any]] = incremental,
     ) -> Iterator[Dict[str, Any]]:
         """
         Yields records from a Socrata dataset.

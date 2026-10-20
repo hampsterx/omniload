@@ -21,6 +21,7 @@ SQL_SOURCE_SCHEMES = [
     "redshift+psycopg2",
     "snowflake",
     "sqlite",
+    "sqlite+turso",
     "oracle",
     "oracle+cx_oracle",
     "oracle+oracledb",
@@ -43,11 +44,12 @@ SOURCE_CAPABILITIES["spanner"] = one_level(
     "spanner",
     "Select the project, instance, and database in --source-uri instead.",
 )
-SOURCE_CAPABILITIES["sqlite"] = two_level(
-    "sqlite",
-    "Select the database file in --source-uri instead.",
-    min_components=1,
-)
+for _sqlite_scheme in ("sqlite", "sqlite+turso"):
+    SOURCE_CAPABILITIES[_sqlite_scheme] = two_level(
+        _sqlite_scheme,
+        "Select the database file in --source-uri instead.",
+        min_components=1,
+    )
 
 sources: LazyRegistry = LazyRegistry(
     {
@@ -211,5 +213,6 @@ destinations: LazyRegistry = LazyRegistry(
         "sqlite": "omniload.target.sqlite:SqliteDestination",
         "synapse": "omniload.target.synapse:SynapseDestination",
         "trino": "omniload.target.trino:TrinoDestination",
+        "turso": "omniload.target.turso:TursoDestination",
     }
 )

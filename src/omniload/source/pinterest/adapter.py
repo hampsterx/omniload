@@ -2,12 +2,12 @@ from typing import Iterable
 
 import dlt
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import TDataItem
 from dlt.sources import DltResource
 from dlt.sources.helpers import requests
 
 from omniload.error import MissingValueError
+from omniload.util.time import ensure_datetime_utc
 
 
 @dlt.source(name="pinterest", max_table_nesting=0)
@@ -39,7 +39,7 @@ def pinterest_source(
             items = data.get("items") or []
 
             for item in items:
-                item_created = ensure_pendulum_datetime_utc(item["created_at"])
+                item_created = ensure_datetime_utc(item["created_at"])
                 if item_created <= start_dt:
                     continue
                 if item_created > end_dt:

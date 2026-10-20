@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class ClickupSource:
@@ -26,12 +26,12 @@ class ClickupSource:
         interval_start = kwargs.get("interval_start")
         interval_end = kwargs.get("interval_end")
         start_date = (
-            ensure_pendulum_datetime_utc(interval_start).in_timezone("UTC")
+            ensure_datetime_utc(interval_start).in_timezone("UTC")
             if interval_start
             else pendulum.datetime(2020, 1, 1, tz="UTC")
         )
         end_date = (
-            ensure_pendulum_datetime_utc(interval_end).in_timezone("UTC")
+            ensure_datetime_utc(interval_end).in_timezone("UTC")
             if interval_end
             else None
         )

@@ -1,7 +1,8 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
+
+from omniload.util.time import ensure_datetime_utc
 
 
 class TikTokSource:
@@ -35,15 +36,15 @@ class TikTokSource:
         advertiser_ids = advertiser_ids[0].replace(" ", "").split(",")
 
         start_date = pendulum.now().subtract(days=30).in_tz(timezone)
-        end_date = ensure_pendulum_datetime_utc(pendulum.now()).in_tz(timezone)
+        end_date = ensure_datetime_utc(pendulum.now()).in_tz(timezone)
 
         interval_start = kwargs.get("interval_start")
         if interval_start is not None:
-            start_date = ensure_pendulum_datetime_utc(interval_start).in_tz(timezone)
+            start_date = ensure_datetime_utc(interval_start).in_tz(timezone)
 
         interval_end = kwargs.get("interval_end")
         if interval_end is not None:
-            end_date = ensure_pendulum_datetime_utc(interval_end).in_tz(timezone)
+            end_date = ensure_datetime_utc(interval_end).in_tz(timezone)
 
         page_size = min(1000, kwargs.get("page_size", 1000))
 

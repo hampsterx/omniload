@@ -38,7 +38,7 @@ jobs:
           sudo ACCEPT_EULA=Y apt-get install msodbcsql18 -y
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           activate-environment: 'true'
           cache-suffix: ${{ matrix.python-version }}
@@ -48,6 +48,22 @@ jobs:
       - name: Install project
         run: |
           uv pip install --editable='.[full,develop,test]'
+
+      # The Turso sync tests run against a self-hosted `tursodb --sync-server`, which
+      # ships only as a release binary. Pinned to the version of the pyturso pin, and
+      # checked against the release's own checksum.
+      - name: Install tursodb
+        env:
+          TURSODB_VERSION: v0.8.3
+          TURSODB_ASSET: turso_cli-x86_64-unknown-linux-gnu.tar.xz
+        run: |
+          mkdir -p "$RUNNER_TEMP/tursodb" && cd "$RUNNER_TEMP/tursodb"
+          base="https://github.com/tursodatabase/turso/releases/download/${TURSODB_VERSION}"
+          curl -fsSLO "${base}/${TURSODB_ASSET}"
+          curl -fsSLO "${base}/${TURSODB_ASSET}.sha256"
+          sha256sum --check "${TURSODB_ASSET}.sha256"
+          tar -xJf "${TURSODB_ASSET}"
+          echo "OMNILOAD_TEST_TURSODB=$PWD/turso_cli-x86_64-unknown-linux-gnu/tursodb" >> "$GITHUB_ENV"
 
       - name: Set timezone
         uses: szenius/set-timezone@v2.0
@@ -85,7 +101,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           activate-environment: 'true'
           cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}

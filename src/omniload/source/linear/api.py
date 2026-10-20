@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class LinearSource:
@@ -47,13 +47,13 @@ class LinearSource:
 
         start_date = kwargs.get("interval_start")
         if start_date is not None:
-            start_date = ensure_pendulum_datetime_utc(start_date)
+            start_date = ensure_datetime_utc(start_date)
         else:
             start_date = pendulum.datetime(2020, 1, 1).in_tz("UTC")
 
         end_date = kwargs.get("interval_end")
         if end_date is not None:
-            end_date = end_date = ensure_pendulum_datetime_utc(end_date).in_tz("UTC")
+            end_date = end_date = ensure_datetime_utc(end_date).in_tz("UTC")
 
         from omniload.source.linear.adapter import linear_source
 

@@ -18,10 +18,11 @@ from typing import Any, Generator, Iterable, List, Optional
 from urllib.parse import urljoin
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import Dict, TAnyDateTime, TDataItem
 from dlt.sources.helpers import requests
 from jsonpath_ng.ext import parse
+
+from omniload.util.time import ensure_datetime_utc
 
 from .settings import MAX_PAGE_SIZE, SLACK_API_URL
 
@@ -67,7 +68,7 @@ def ensure_dt_type(
     """
     if dt is None:
         return None
-    out_dt = ensure_pendulum_datetime_utc(dt)
+    out_dt = ensure_datetime_utc(dt)
     if to_ts:
         return out_dt.timestamp()
     return out_dt

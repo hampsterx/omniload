@@ -1,8 +1,7 @@
 from urllib.parse import parse_qs, urlparse
 
-from dlt.common.time import ensure_pendulum_datetime_utc
-
 from omniload.error import MissingValueError
+from omniload.util.time import ensure_datetime_utc
 
 
 class QuickBooksSource:
@@ -58,14 +57,14 @@ class QuickBooksSource:
 
         start_date = kwargs.get("interval_start")
         if start_date is None:
-            start_date = ensure_pendulum_datetime_utc("2025-01-01").in_tz("UTC")
+            start_date = ensure_datetime_utc("2025-01-01").in_tz("UTC")
         else:
-            start_date = ensure_pendulum_datetime_utc(start_date).in_tz("UTC")
+            start_date = ensure_datetime_utc(start_date).in_tz("UTC")
 
         end_date = kwargs.get("interval_end")
 
         if end_date is not None:
-            end_date = ensure_pendulum_datetime_utc(end_date).in_tz("UTC")
+            end_date = ensure_datetime_utc(end_date).in_tz("UTC")
 
         return quickbooks_source(
             company_id=company_id[0],

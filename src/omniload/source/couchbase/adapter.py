@@ -1,6 +1,6 @@
 """Source that loads data from Couchbase buckets, supports incremental loads."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import dlt
 from dlt.sources import DltResource
@@ -20,7 +20,7 @@ def couchbase_source(
     bucket: str = dlt.config.value,
     scope: Optional[str] = dlt.config.value,
     collection: Optional[str] = dlt.config.value,
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
     write_disposition: Optional[str] = dlt.config.value,
     limit: Optional[int] = None,
 ) -> DltResource:
@@ -76,7 +76,7 @@ def couchbase_collection(
     bucket: str = dlt.config.value,
     scope: Optional[str] = dlt.config.value,
     collection: Optional[str] = dlt.config.value,
-    incremental: Optional[dlt.sources.incremental] = None,
+    incremental: Optional[dlt.sources.incremental[Any]] = None,
     write_disposition: Optional[str] = dlt.config.value,
     limit: Optional[int] = None,
     chunk_size: Optional[int] = 1000,

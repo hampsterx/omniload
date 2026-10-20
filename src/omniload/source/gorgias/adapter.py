@@ -3,9 +3,10 @@
 from typing import Iterable, Optional
 
 import dlt
-from dlt.common.time import ensure_pendulum_datetime_utc
 from dlt.common.typing import TAnyDateTime, TDataItem
 from dlt.sources import DltResource
+
+from omniload.util.time import ensure_datetime_utc
 
 from .helpers import GorgiasApi
 
@@ -33,8 +34,8 @@ def gorgias_source(
 
     client = GorgiasApi(domain, email, api_key)
 
-    start_date_obj = ensure_pendulum_datetime_utc(start_date)
-    end_date_obj = ensure_pendulum_datetime_utc(end_date) if end_date else None
+    start_date_obj = ensure_datetime_utc(start_date)
+    end_date_obj = ensure_datetime_utc(end_date) if end_date else None
 
     @dlt.resource(
         primary_key="id",

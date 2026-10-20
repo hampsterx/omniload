@@ -18,7 +18,7 @@ URI parameters:
 - `warehouse`: optional, the name of the warehouse to use
 - `role`: optional, the name of the role to use
 
-The same URI structure can be used both for sources and destinations. You can read more about SQLAlchemy's Snowflake dialect [here](https://docs.snowflake.com/en/developer-guide/python-connector/sqlalchemy#connection-parameters).
+The same URI structure can be used both for sources and destinations. You can read more about SQLAlchemy's Snowflake dialect [here](https://docs.snowflake.com/en/developer-guide/sqlalchemy/sqlalchemy-connect#connection-parameters).
 
 ## Table naming
 

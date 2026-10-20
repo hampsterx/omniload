@@ -93,7 +93,7 @@ dependencies = [
   "facebook-business<27",
   "flatten-json<0.2",
   "gitpython>=3.1.59",
-  "google-ads<34",
+  "google-ads<35",
   "google-analytics-data<0.24",
   "google-api-python-client<3",
   "google-auth<3",
@@ -111,7 +111,7 @@ dependencies = [
   "pyairtable<4",
   "pyarrow>=18,<27",
   "pyasn1>=0.6.4",
-  "pyathena<4",
+  "pyathena<5",
   "pymongo<5",
   "pymongoarrow<2",
   "pymysql<2",
@@ -122,9 +122,11 @@ dependencies = [
   "setuptools>=83",
   "simple-salesforce<2",
   "smartsheet-python-sdk<5",
-  "snowflake-connector-python>=4.7.1,<5",
-  "snowflake-sqlalchemy<2",
-  "sqlalchemy<2.2",
+  "snowflake-connector-python>=4.7.1,<6",
+  "snowflake-sqlalchemy<3",
+  # SQLAlchemy 2.0.55 reflects PostgreSQL primary keys with a `REGCLASS` cast, which
+  # duckdb-engine (PostgreSQL dialect on DuckDB) cannot execute, so reading a DuckDB table fails.
+  "sqlalchemy<2.0.55",
   "sqlalchemy-bigquery<2",
   "sqlalchemy-cratedb<1",
   "sqlalchemy-hana<6",
@@ -149,15 +151,15 @@ optional-dependencies.develop = [
   "poethepoet<1",
   "pyproject-fmt<3",
   "pytest-repeat<1",
-  "ruff==0.16.*",
-  "ty==0.0.85",
+  "ruff==0.17.*",
+  "ty==0.0.89",
   "validate-pyproject<1",
 ]
 # The filesystem and blob stack lives in its own distribution.
 optional-dependencies.filesystem = [
   "dlt-filesystem",
 ]
-optional-dependencies.full = [ "omniload[adbcbridge,ibm-db,iterable,notify,odbc,oracle,reshape,vortex]" ]
+optional-dependencies.full = [ "omniload[adbcbridge,ibm-db,iterable,notify,odbc,oracle,reshape,turso,vortex]" ]
 optional-dependencies.ibm-db = [
   "ibm-db<4; platform_machine!='aarch64'",
   "ibm-db-sa<0.5; platform_machine!='aarch64'",
@@ -212,6 +214,12 @@ optional-dependencies.test = [
   "testcontainers[azurite,mysql,postgres]>=4.9.1,<4.16",
   "types-requests<3",
   "xlsxwriter<4",
+]
+# Turso databases, in-process and over Turso's sync protocol, through pyturso's own
+# SQLAlchemy dialects. pyturso publishes no Windows wheel, and its sdist needs a Rust
+# toolchain, so the extra is empty there and [full] stays installable.
+optional-dependencies.turso = [
+  "pyturso[sqlalchemy]>=0.8.3,<0.9; platform_system!='Windows'",
 ]
 # Vortex columnar files, Python 3.11+.
 optional-dependencies.vortex = [

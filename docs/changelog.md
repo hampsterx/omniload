@@ -2,6 +2,9 @@
 
 ## in progress
 
+- Keep datetime normalization compatible with dlt 1.31 while retaining support for
+  older dlt releases.
+
 - Extract fragments of code into dedicated package [dlt-filesystem].
 
 - **Notifications: a job report through Apprise when a run ends.** `--notify
@@ -14,6 +17,19 @@
   stages and exception types, never URIs, query text or error messages. Install
   `omniload[notify]`; `run_ingest` takes the same options as `notify`,
   `notify_config` and `notify_on`. See [Notifications].
+
+- **Turso, read and written.** `turso:///path/to/app.db` is an in-process file and
+  `turso://host?authToken=...` a remote database, Turso Cloud or a self-hosted
+  `tursodb --sync-server` (`tls=false` for plain HTTP), each a source and a
+  destination through pyturso's own SQLAlchemy dialects
+  (`pip install 'omniload[turso]'`, not available on Windows). A remote database
+  is read and written through a replica bootstrapped for the run and discarded
+  after it; a destination run pushes the replica once the load has committed,
+  and cannot be combined with `--pipelines-dir`. The destination
+  writes to the `main` schema with `append` and `replace` only: a merge load into
+  Turso deletes rows it should keep (tursodatabase/turso#6279), so `merge`,
+  `delete+insert`, `scd2` and a source's own merge resources are refused before
+  anything is written, as is `--full-refresh`.
 
 ## 2026/09/27 v0.19.0
 

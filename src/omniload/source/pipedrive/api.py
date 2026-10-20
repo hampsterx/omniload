@@ -2,9 +2,9 @@ from typing import cast
 from urllib.parse import parse_qs, urlparse
 
 import pendulum
-from dlt.common.time import ensure_pendulum_datetime_utc
 
 from omniload.error import MissingValueError, UnsupportedResourceError
+from omniload.util.time import ensure_datetime_utc
 
 
 class PipedriveSource:
@@ -26,7 +26,7 @@ class PipedriveSource:
         start_dt: pendulum.DateTime
         start_date = kwargs.get("interval_start")
         if start_date is not None:
-            start_dt = ensure_pendulum_datetime_utc(start_date)
+            start_dt = ensure_datetime_utc(start_date)
         else:
             start_dt = cast(pendulum.DateTime, pendulum.parse("2000-01-01"))
 

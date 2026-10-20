@@ -1,6 +1,24 @@
 import datetime
 import struct
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+from dlt.common.pendulum import pendulum
+from dlt.common.typing import TAnyDateTime
+
+if TYPE_CHECKING:
+
+    def ensure_datetime_utc(value: TAnyDateTime) -> pendulum.DateTime: ...
+
+
+else:
+    try:
+        from dlt.common.time import ensure_pendulum_datetime_utc as ensure_datetime_utc
+    except ImportError:
+        from dlt.common.time import ensure_pendulum_datetime
+
+        def ensure_datetime_utc(value: TAnyDateTime) -> pendulum.DateTime:
+            """Return a Pendulum datetime normalized to UTC."""
+            return ensure_pendulum_datetime(value, tz=datetime.timezone.utc)
 
 
 def isotime(dt: Optional[datetime.datetime]) -> Optional[str]:
