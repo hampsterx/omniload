@@ -231,8 +231,8 @@ Rows normalized:
 ```
 
 A failed run adds the stage it stopped at (`setup`, `staging`, `extract`,
-`normalize`, `load`, `destination_post_load` or `source_post_load`, or
-`pipeline` for any other dlt step) and the type
+`normalize`, `load`, `destination_post_load`, `source_post_load` or
+`destination_close`, or `pipeline` for any other dlt step) and the type
 of the exception, such as `NoSuchTableError`. Row counts are the rows dlt
 normalized, not rows committed, without dlt's own state tables. A count omniload
 does not know for the run is shown as unavailable, never as 0.

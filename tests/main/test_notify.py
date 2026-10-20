@@ -210,6 +210,37 @@ def test_success_sends_one_report(recorder, csv_load):
     assert "`t`: 3 rows" in payload["message"]
 
 
+def test_destination_close_failure_names_its_stage(
+    recorder, csv_load, hooks, monkeypatch
+):
+    get_destination = SourceDestinationFactory.get_destination
+
+    def with_failing_close(self):
+        destination: Any = get_destination(self)
+
+        def close():
+            recorder.events.append("destination.close")
+            raise RuntimeError(f"close failed with token {SECRET}")
+
+        destination.close = close
+        return destination
+
+    monkeypatch.setattr(SourceDestinationFactory, "get_destination", with_failing_close)
+    with pytest.raises(RuntimeError, match="close failed"):
+        run_ingest(**csv_load, notify=[recorder.url()])
+
+    assert recorder.events == [
+        "destination.post_load",
+        "source.post_load",
+        "destination.close",
+        "notify",
+    ]
+    payload = recorder.posts[0][1]
+    assert "Stage: `destination_close`" in payload["message"]
+    assert "Exception: `RuntimeError`" in payload["message"]
+    assert SECRET not in recorder.payloads()
+
+
 def test_setup_failure_reports_and_reraises(recorder, tmp_path):
     with pytest.raises(NoSuchTableError):
         run_ingest(**_missing_table(tmp_path), notify=[recorder.url()])

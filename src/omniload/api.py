@@ -372,6 +372,7 @@ def _run_ingest(
             except Exception:
                 logger.exception("Closing the destination failed after a failed run")
         raise
+    _mark(context, Stage.destination_close)
     for destination in destinations:
         getattr(destination, "close", lambda: None)()
     return result

@@ -50,7 +50,8 @@ class Stage(str, Enum):
     request validation, source and destination construction and dlt's state sync, and
     ``extract`` / ``normalize`` / ``load`` are dlt's pipeline steps (failed jobs in a
     returned `LoadInfo` count as ``load``). The two ``*_post_load`` stages are the
-    commit hooks after a successful load. ``pipeline`` is a dlt step outside that map.
+    commit hooks after a successful load, and ``destination_close`` is its final
+    destination cleanup. ``pipeline`` is a dlt step outside that map.
     """
 
     staging = "staging"
@@ -60,6 +61,7 @@ class Stage(str, Enum):
     load = "load"
     destination_post_load = "destination_post_load"
     source_post_load = "source_post_load"
+    destination_close = "destination_close"
     pipeline = "pipeline"
 
 
