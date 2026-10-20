@@ -159,7 +159,7 @@ optional-dependencies.develop = [
 optional-dependencies.filesystem = [
   "dlt-filesystem",
 ]
-optional-dependencies.full = [ "omniload[adbcbridge,ibm-db,iterable,odbc,oracle,reshape,vortex]" ]
+optional-dependencies.full = [ "omniload[adbcbridge,ibm-db,iterable,odbc,oracle,reshape,turso,vortex]" ]
 optional-dependencies.ibm-db = [
   "ibm-db<4; platform_machine!='aarch64'",
   "ibm-db-sa<0.5; platform_machine!='aarch64'",
@@ -210,6 +210,12 @@ optional-dependencies.test = [
   "testcontainers[azurite,mysql,postgres]>=4.9.1,<4.16",
   "types-requests<3",
   "xlsxwriter<4",
+]
+# Turso databases, in-process and over Turso's sync protocol, through pyturso's own
+# SQLAlchemy dialects. pyturso publishes no Windows wheel, and its sdist needs a Rust
+# toolchain, so the extra is empty there and [full] stays installable.
+optional-dependencies.turso = [
+  "pyturso[sqlalchemy]>=0.8.3,<0.9; platform_system!='Windows'",
 ]
 # Vortex columnar files, Python 3.11+.
 optional-dependencies.vortex = [
