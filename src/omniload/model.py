@@ -64,6 +64,13 @@ class SqlReflectionLevel(str, Enum):
     full_with_precision = "full_with_precision"
 
 
+class NotifyOn(str, Enum):
+    """Which run outcomes send a job report to the notification targets."""
+
+    always = "always"
+    failure = "failure"
+
+
 @dataclasses.dataclass
 class LoadRequest:
     """Represent a data loading request"""
@@ -108,3 +115,8 @@ class LoadRequest:
     staging_bucket: str | None = None
     mask: list[str] | None = None
     reshape: str | None = None
+    # Notification targets: inline apprise URLs, and apprise config files or URLs
+    # whose entries route by tag. Neither given means no report and no apprise import.
+    notify: list[str] | None = None
+    notify_config: list[str] | None = None
+    notify_on: NotifyOn | str = NotifyOn.always
