@@ -524,8 +524,12 @@ def test_a_plain_merge_into_a_factory_destination_still_runs(tmp_path):
     [
         ("sqlite:///{tmp}/app.db", "Its merge strategies are: delete-insert, scd2"),
         ("mongodb://localhost:1/db", "It has no merge strategy for it"),
+        (
+            "s3://bucket/prefix?access_key_id=x&secret_access_key=y",
+            "It has no merge strategy for it",
+        ),
     ],
-    ids=["sqlalchemy", "mongodb"],
+    ids=["sqlalchemy", "mongodb", "bucket"],
 )
 def test_rejects_a_destination_that_cannot_run_the_strategy(
     tmp_path, strategy, dest_uri, message
