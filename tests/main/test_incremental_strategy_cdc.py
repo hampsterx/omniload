@@ -488,3 +488,21 @@ def test_upsert_leaves_dynamic_hints_to_dlt(tmp_path, monkeypatch):
     for _ in range(2):
         _ingest_stub(monkeypatch, _DynamicSource(), dest, "upsert")
     assert _count(dest) == 2
+
+
+def test_a_plain_merge_into_a_factory_destination_still_runs(tmp_path):
+    """Naming the default merge strategy reads the capabilities of the destination the
+    pipeline resolved, because a destination can hand dlt a factory callable, as MongoDB
+    does, which has no capabilities of its own. A dry run stops before any connection."""
+    src = tmp_path / "src.db"
+    _make_sqlite(src, THREE)
+    run_ingest(
+        source_uri=f"sqlite:///{src}",
+        dest_uri="mongodb://localhost:1/db",
+        source_table="main.people",
+        dest_table="people",
+        incremental_strategy="merge",
+        primary_key=["id"],
+        dry_run=True,
+        progress="log",
+    )

@@ -949,8 +949,10 @@ def _assemble_and_run(
     # later run names none, so a table once loaded with `cdc` would go on deleting
     # unread rows under a plain `merge` or `delete+insert`. Name the strategy dlt would
     # default to, the destination's first, so the run loads with the one it asked for.
+    # The pipeline's destination, not `dlt_dest`: a destination may hand dlt a factory
+    # callable (MongoDB does), which only the pipeline resolves into one with capabilities.
     if write_disposition == "merge":
-        strategies = dlt_dest.capabilities().supported_merge_strategies
+        strategies = pipeline.destination.capabilities().supported_merge_strategies
         if strategies:
             write_disposition = {"disposition": "merge", "strategy": strategies[0]}
 
