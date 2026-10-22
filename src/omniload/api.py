@@ -84,6 +84,28 @@ RUN_OPTION_KEYS: frozenset[str] = frozenset(
 )
 
 
+#: Strategies that are a dlt merge strategy named on a `merge` disposition, rather than a
+#: write disposition of their own.
+NAMED_MERGE_STRATEGIES = (
+    IncrementalStrategy.scd2,
+    IncrementalStrategy.upsert,
+    IncrementalStrategy.cdc,
+)
+
+#: Why each strategy that reads absence as deletion cannot take a partial read.
+_ABSENCE_CONSEQUENCE = {
+    IncrementalStrategy.scd2: (
+        "scd2 spots a change by comparing the whole source table against the records "
+        "it holds open, so a run that reads only part of the table retires every "
+        "record it leaves out."
+    ),
+    IncrementalStrategy.cdc: (
+        "cdc syncs the destination to the whole source table, so a run that reads "
+        "only part of the table deletes every record it leaves out."
+    ),
+}
+
+
 def _coerce(value, enum_cls):
     """Accept either an enum member or its string value (the CLI form)."""
     if value is None or isinstance(value, enum_cls):
@@ -138,7 +160,8 @@ def _first_merging_resource(dlt_source, run_disposition) -> str | None:
     run-level disposition overrides every resource's hint (dlt applies it with
     ``apply_hints``), and without one each resource keeps its own, which sources
     that manage their incrementality set themselves. Merge is the string
-    ``"merge"`` or a dict whose ``disposition`` is ``"merge"`` (scd2's form). A
+    ``"merge"`` or a dict whose ``disposition`` is ``"merge"`` (the form a named
+    merge strategy such as scd2 takes). A
     callable hint is resolved per data item, so nothing here can show it does
     not merge, and it counts as merging.
     """
@@ -153,6 +176,26 @@ def _first_merging_resource(dlt_source, run_disposition) -> str | None:
 
     resource.for_each(dlt_source, check)
     return found[0] if found else None
+
+
+def _require_primary_key(resource, strategy: IncrementalStrategy) -> None:
+    """Raise unless ``resource`` declares a primary key ``strategy`` can match rows on.
+
+    A resource whose table hints depend on the data cannot be inspected before it is
+    read, so it is left to dlt's own check at the load step.
+    """
+    from dlt.extract.exceptions import DataItemRequiredForDynamicTableHints
+
+    try:
+        columns = resource.compute_table_schema().get("columns", {})
+    except DataItemRequiredForDynamicTableHints:
+        return
+    if not any(column.get("primary_key") for column in columns.values()):
+        raise ValidationError(
+            f"Incremental strategy '{strategy.value}' needs a primary key to match "
+            f"records on, and the '{resource.name}' table declares none. Name its key "
+            "columns with '--primary-key'."
+        )
 
 
 def run_ingest(**kwargs) -> LoadInfo | None:
@@ -541,6 +584,23 @@ def _assemble_and_run(
     column_hints: dict[str, TColumnSchema] = {}
     original_incremental_strategy = incremental_strategy
 
+    # cdc deletes every destination record a load leaves out, so it is only safe on a
+    # read of the whole table. A SQL table reads whole unless an option windows or
+    # truncates it, which the partial-read check below refuses. Other sources can keep a
+    # cursor or a default window of their own that nothing here can see before the read,
+    # so cdc is refused for them outright, ahead of the suppression that would otherwise
+    # drop it to `none` for sources that own their disposition.
+    if (
+        original_incremental_strategy == IncrementalStrategy.cdc
+        and factory.source_scheme not in SQL_SOURCE_SCHEMES
+    ):
+        raise ValidationError(
+            "Incremental strategy 'cdc' is only supported for SQL database sources, "
+            f"and '{factory.source_scheme}' is not one. cdc deletes every destination "
+            "record a run does not read, so it needs a source omniload can read in "
+            "full."
+        )
+
     supports_filesystem_incremental = getattr(
         source, "supports_filesystem_incremental", lambda: False
     )()
@@ -583,12 +643,12 @@ def _assemble_and_run(
                 column_hints[column_name] = {"data_type": column_type}
 
     # `IncrementalStrategy` flattens dlt's two axes (a write disposition of
-    # skip/append/replace/merge, and a merge strategy of delete-insert/scd2/upsert/
-    # insert-only) onto one, so its two merge-strategy values unflatten back onto dlt's
-    # shape here: both are a `merge` disposition carrying a strategy. `delete+insert` marks
-    # the incremental key as the merge key and relies on dlt's default strategy; `scd2`
-    # names its strategy on the disposition itself, applied below once the sources that own
-    # their own disposition have had their say.
+    # skip/append/replace/merge, and a merge strategy of delete-insert/scd2/upsert/cdc/
+    # insert-only) onto one, so its merge-strategy values unflatten back onto dlt's shape
+    # here: each is a `merge` disposition carrying a strategy. `delete+insert` marks the
+    # incremental key as the merge key and relies on dlt's default strategy; `scd2`,
+    # `upsert` and `cdc` name their strategy on the disposition itself, applied below once
+    # the sources that own their own disposition have had their say.
     merge_key = None
     if incremental_strategy == IncrementalStrategy.delete_insert:
         merge_key = jr.incremental_key
@@ -598,7 +658,7 @@ def _assemble_and_run(
                 column_hints[jr.incremental_key] = {}
 
             column_hints[jr.incremental_key]["merge_key"] = True
-    elif incremental_strategy == IncrementalStrategy.scd2:
+    elif incremental_strategy in NAMED_MERGE_STRATEGIES:
         incremental_strategy = IncrementalStrategy.merge
 
     # TODO: What is this hash used for?
@@ -716,8 +776,8 @@ def _assemble_and_run(
                 pass
             elif original_incremental_strategy in (
                 IncrementalStrategy.merge,
-                IncrementalStrategy.scd2,
                 IncrementalStrategy.delete_insert,
+                *NAMED_MERGE_STRATEGIES,
             ):
                 raise ValidationError(
                     f"Incremental strategy '{original_incremental_strategy.value}' needs an "
@@ -734,25 +794,39 @@ def _assemble_and_run(
     if incremental_strategy is None:
         incremental_strategy = IncrementalStrategy.create_replace
 
-    # The strategy is final from here, so this is what actually reaches the load: scd2 as
-    # asked for, and not suppressed above by a source that owns its own disposition.
-    runs_scd2 = (
-        original_incremental_strategy == IncrementalStrategy.scd2
+    # The strategy is final from here, so this is what actually reaches the load: a named
+    # merge strategy as asked for, and not suppressed above by a source that owns its own
+    # disposition.
+    merge_strategy = (
+        original_incremental_strategy
+        if original_incremental_strategy in NAMED_MERGE_STRATEGIES
         and incremental_strategy != IncrementalStrategy.none
+        else None
     )
+    runs_scd2 = merge_strategy == IncrementalStrategy.scd2
 
-    # scd2 has dlt compare the whole source state against the records it holds open, and
-    # retire whatever is missing from it. Anything that hands dlt less than that state, or
-    # rows it cannot hash, corrupts the history rather than failing, so refuse it up front.
-    if runs_scd2:
-        # An incremental key windows the read, and either limit truncates it. Whatever the
-        # run leaves out is absent from the batch and gets retired, though the source still
-        # holds it unchanged.
+    # scd2 and cdc both read a record missing from the load as gone from the source: scd2
+    # retires it, cdc deletes it. Anything that hands dlt less than the whole source state
+    # corrupts the destination rather than failing, so refuse it up front.
+    if merge_strategy in _ABSENCE_CONSEQUENCE:
+        # An incremental key windows the read, and either limit truncates it. An interval
+        # windows it too where a `query:` table binds it into its `:interval_start` /
+        # `:interval_end` placeholders, which needs no incremental key; on any other
+        # table it takes effect only through the incremental key. Whatever the run leaves
+        # out is absent from the batch.
+        def binds(placeholder: str) -> bool:
+            return source_table.startswith("query:") and placeholder in source_table
+
         partial_read = next(
             (
                 option
                 for option, value in (
                     ("--incremental-key", jr.incremental_key),
+                    (
+                        "--interval-start",
+                        binds(":interval_start") and jr.interval_start,
+                    ),
+                    ("--interval-end", binds(":interval_end") and jr.interval_end),
                     ("--sql-limit", jr.sql_limit),
                     ("--yield-limit", jr.yield_limit),
                 )
@@ -762,11 +836,12 @@ def _assemble_and_run(
         )
         if partial_read:
             raise ValidationError(
-                f"Incremental strategy 'scd2' cannot be combined with '{partial_read}': "
-                "scd2 spots a change by comparing the whole source table against the "
-                "records it holds open, so a run that reads only part of the table retires "
-                "every record it leaves out."
+                f"Incremental strategy '{merge_strategy.value}' cannot be combined with "
+                f"'{partial_read}': {_ABSENCE_CONSEQUENCE[merge_strategy]}"
             )
+
+    # scd2 also hashes each row to spot a change, which some inputs cannot carry.
+    if runs_scd2:
         # A mask that draws a fresh value per run rewrites the rows scd2 compares, so an
         # untouched source row reads as a new version of itself on every load.
         unstable_masks = non_deterministic_masks(jr.mask) if jr.mask else []
@@ -851,8 +926,8 @@ def _assemble_and_run(
             data_item_format = "arrow"
 
     write_disposition: str | dict[str, str] | None = None
-    if runs_scd2:
-        write_disposition = {"disposition": "merge", "strategy": "scd2"}
+    if merge_strategy is not None:
+        write_disposition = {"disposition": "merge", "strategy": merge_strategy.value}
     elif incremental_strategy != IncrementalStrategy.none:
         write_disposition = incremental_strategy.value
 
@@ -990,6 +1065,16 @@ def _assemble_and_run(
             x.apply_hints(columns=column_hints)
 
     resource.for_each(dlt_source, col_h)
+
+    if (
+        merge_strategy in (IncrementalStrategy.upsert, IncrementalStrategy.cdc)
+        and not jr.primary_key
+    ):
+        # dlt refuses both without a primary key, but only at the load step and as a
+        # traceback. A key given with `--primary-key` reaches dlt at `pipeline.run()`
+        # rather than on the resource, so it satisfies this outright; otherwise the
+        # resource must carry one, as a SQL table with a declared key does by reflection.
+        resource.for_each(dlt_source, lambda x: _require_primary_key(x, merge_strategy))
 
     if isinstance(destination, AthenaDestination) and jr.partition_by:
         hint.apply_athena_hints(dlt_source, jr.partition_by, column_hints)

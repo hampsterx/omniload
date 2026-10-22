@@ -56,5 +56,5 @@ omniload ingest \
 -->
 
 :::{warning}
-Clickhouse currently doesn't support `delete+insert`, `merge` or `scd2` incremental strategies.
+Clickhouse currently doesn't support `cdc`, `delete+insert`, `merge`, `scd2` or `upsert` incremental strategies.
 :::

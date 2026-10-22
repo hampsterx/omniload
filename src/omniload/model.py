@@ -29,6 +29,8 @@ class IncrementalStrategy(str, Enum):
     delete_insert = "delete+insert"
     merge = "merge"
     scd2 = "scd2"
+    upsert = "upsert"
+    cdc = "cdc"
     none = "none"
 
 

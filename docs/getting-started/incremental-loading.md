@@ -18,6 +18,8 @@ Before you use incremental loading, you should understand three important settin
   - `merge`: merge the new rows with the existing rows in the destination table, insert the new ones and update the existing ones with the new values.
   - `delete+insert`: delete the existing rows in the destination table that match the incremental key and then insert the new rows.
   - `scd2`: retire the existing row and open a new one when a row changes, keeping the history of both.
+  - `upsert`: insert the new rows and update the changed ones, matched on the primary key, without deleting any.
+  - `cdc`: make the destination equal to the source on every run, deleting the rows the source no longer holds.
 
 
 
@@ -236,7 +238,7 @@ The `delete+insert` strategy is useful when you want to keep the destination tab
 
 SCD2 (slowly changing dimension type 2) keeps the history of every row rather than overwriting it. When a row changes in the source, the existing record is retired and a new one is opened alongside it, so the destination records what the data looked like at any point in time. Each run stamps two extra columns, `_dlt_valid_from` and `_dlt_valid_to`. The record that is currently active is the one with an empty `_dlt_valid_to`.
 
-SCD2 spots a change by comparing the whole source table against the records it is holding open, and retires whatever it no longer finds there. Every run must therefore read the table in full, so `scd2` rejects `--incremental-key`, `--sql-limit`, and `--yield-limit`: each reads back part of the table, which SCD2 cannot tell apart from the rest of the rows having been deleted. The filesystem family rejects `scd2` altogether ([Filesystem sources](#filesystem-sources)).
+SCD2 spots a change by comparing the whole source table against the records it is holding open, and retires whatever it no longer finds there. Every run must therefore read the table in full, so `scd2` rejects `--incremental-key`, `--sql-limit`, `--yield-limit`, and `--interval-start` / `--interval-end` on a `query:` table that uses the `:interval_start` / `:interval_end` placeholders: each reads back part of the table, which SCD2 cannot tell apart from the rest of the rows having been deleted. The filesystem family rejects `scd2` altogether ([Filesystem sources](#filesystem-sources)).
 
 Where the source table is an expression rather than a plain table name, such as a `query:` for a SQL source, that expression's result is the table SCD2 tracks and carries the same requirement: it must return the tracked rows in full on every run. An expression whose result varies for any reason other than the data changing, such as one carrying its own limit, retires the rows it omits.
 
@@ -298,6 +300,60 @@ SCD2 compares the row values it receives, so anything that rewrites a value diff
 
 :::{note}
 SCD2 compares rows by a hash that dlt computes only for row-oriented data, so it does not work on data read as Arrow tables. For SCD2, SQL sources are read with the `sqlalchemy` backend, which omniload selects for you. Passing `--sql-backend pyarrow` or `--sql-backend connectorx` alongside `scd2` is rejected, as is `scd2` on an `mmap://` source, which is Arrow whichever backend you name.
+:::
+
+(incremental-loading-upsert)=
+
+## Upsert
+
+Upsert inserts the source rows the destination does not have yet and updates the ones it already holds, matching them on the primary key. It deletes nothing: a row that disappears from the source stays in the destination. Where `merge` deletes the matching rows and inserts them again on most SQL destinations, `upsert` updates them in place.
+
+Upsert needs a primary key. A SQL table that declares one is used as it is; for any other table, name the key columns with `--primary-key` on every run. A run without either is rejected before anything is loaded.
+
+As it deletes nothing, `upsert` can be combined with `--incremental-key` to read only the rows that changed since the previous run.
+
+The following example upserts the `my_schema.some_data` table from Postgres into DuckDB, matching rows on `id`.
+
+```bash
+omniload ingest \
+    --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
+    --source-table 'my_schema.some_data' \
+    --dest-uri 'duckdb:///warehouse.duckdb' \
+    --incremental-strategy upsert \
+    --primary-key id
+```
+
+(incremental-loading-cdc)=
+
+## CDC
+
+CDC (change data capture) makes the destination table equal to the source table on every run. Rows new to the source are inserted, changed rows are updated, and rows the source no longer holds are deleted, all matched on the primary key. It keeps a replica in sync without the whole-table rewrite of `replace`.
+
+CDC deletes every row a run does not read, so every run must read the table in full. Like `scd2`, `cdc` therefore rejects `--incremental-key`, `--sql-limit`, `--yield-limit`, and `--interval-start` / `--interval-end` on a `query:` table that uses the `:interval_start` / `:interval_end` placeholders. A `query:` table must return all of its rows on every run: one carrying its own limit deletes the rows it leaves out.
+
+`cdc` is accepted for SQL database sources only. Other sources can narrow what they read by themselves, for example to a default date window, in a way omniload cannot see before reading, so `cdc` is rejected for them. That includes the filesystem family and the sources that manage their own incrementality.
+
+CDC needs a primary key, as upsert does.
+
+The following example keeps the `my_schema.some_data` table in DuckDB in sync with Postgres.
+
+```bash
+omniload ingest \
+    --source-uri 'postgresql://admin:admin@localhost:8837/web?sslmode=disable' \
+    --source-table 'my_schema.some_data' \
+    --dest-uri 'duckdb:///warehouse.duckdb' \
+    --incremental-strategy cdc \
+    --primary-key id
+```
+
+:::{caution}
+- An empty source table is handled according to the SQL backend. With `sqlalchemy` and `pyarrow`, which is the default, a run that reads no rows loads nothing and deletes nothing, so the destination keeps the rows it had. With `connectorx`, the same run deletes every row in the destination.
+- A destination table loaded earlier with `delete+insert` keeps its incremental key as a merge key, and a later `cdc` run then deletes only among the values of that key it has read. Add `--full-refresh` to the first `cdc` run into such a table.
+- Masking a primary-key column with `--mask` changes the key rows are matched on. A mask that draws a fresh value per run deletes and inserts every row again on every run, and a mask that maps two keys to one value merges those rows.
+:::
+
+:::{note}
+Which destinations support `upsert` and `cdc` is up to dlt. With dlt 1.31, both work on BigQuery, Databricks, DuckDB 1.4 or later, MotherDuck, Microsoft SQL Server, Postgres, Snowflake, and Athena with Iceberg tables. ClickHouse, CrateDB, Redshift, Synapse, Turso, and the destinations written through SQLAlchemy, such as MySQL and SQLite, support neither.
 :::
 
 (incremental-loading-filesystem)=
@@ -383,7 +439,7 @@ omniload ingest \
     --incremental-strategy replace
 ```
 
-The key-dependent strategies (`delete+insert`, `merge`, `scd2`) are rejected with an error, because filesystem sources expose no incremental or merge key for them to use. Use `append` or `replace` instead.
+The key-dependent strategies (`delete+insert`, `merge`, `scd2`, `upsert`) are rejected with an error, because filesystem sources expose no incremental or merge key for them to use. `cdc` is rejected too, as for every source that is not a SQL database. Use `append` or `replace` instead.
 
 ### Resetting the destination with `--full-refresh`
 
