@@ -429,3 +429,62 @@ def test_cdc_on_an_empty_source_clears_it_with_connectorx(tmp_path):
     _load(src, dest, "cdc", sql_backend="connectorx")
 
     assert _records(dest) == []
+
+
+@pytest.mark.parametrize(
+    ("strategy", "kwargs"),
+    [
+        ("merge", {"primary_key": ["id"]}),
+        ("delete+insert", {"incremental_key": "id"}),
+    ],
+)
+def test_a_later_merge_does_not_inherit_cdc(tmp_path, strategy, kwargs):
+    """dlt keeps a table's merge strategy in its stored schema when a run names none, so
+    after a cdc load a plain `merge` or `delete+insert` would still run cdc and delete
+    every row it did not read. Each run names its own strategy, so a limited read after
+    cdc leaves the unread rows in place."""
+    src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
+    _make_sqlite(src, THREE)
+
+    _load(src, dest, "cdc")
+    _load(src, dest, strategy, sql_limit=1, **kwargs)
+
+    assert [r[0] for r in _records(dest)] == [1, 2, 3]
+
+
+def test_the_primary_key_error_names_a_query_as_such(tmp_path, monkeypatch):
+    """A `query:` table's resource has a placeholder name the user never wrote. Building
+    a custom-query source replaces `table_rows` in dlt for the rest of the process, so the
+    test restores it for the tests that run after it."""
+    import dlt.sources.sql_database
+
+    monkeypatch.setattr(
+        dlt.sources.sql_database, "table_rows", dlt.sources.sql_database.table_rows
+    )
+    src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
+    _make_sqlite(src, THREE, keyed=False)
+
+    with pytest.raises(ValidationError, match="and the query declares none"):
+        _load(src, dest, "cdc", source_table="query:SELECT id, name, city FROM people")
+
+
+def test_upsert_leaves_dynamic_hints_to_dlt(tmp_path, monkeypatch):
+    """A resource whose table name depends on each item cannot be inspected before the
+    read, so the primary-key check defers to dlt, which loads it with the key the
+    resource declares."""
+
+    class _DynamicSource:
+        def handles_incrementality(self) -> bool:
+            return False
+
+        def dlt_source(self, uri, table, **kwargs):
+            @dlt.resource(name="rows", table_name=lambda item: "rows", primary_key="id")
+            def rows():
+                yield from [{"id": 1}, {"id": 2}]
+
+            return rows()
+
+    dest = tmp_path / "wh.duckdb"
+    for _ in range(2):
+        _ingest_stub(monkeypatch, _DynamicSource(), dest, "upsert")
+    assert _count(dest) == 2
