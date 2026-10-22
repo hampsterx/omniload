@@ -4,6 +4,15 @@
 
 - Connector: Verified support for DuckDB 2.x
 
+- **Incremental strategies `upsert` and `cdc`.** `upsert` inserts and updates by
+  primary key without deleting. `cdc` keeps the destination equal to the source,
+  deleting the rows the source no longer holds; it is accepted for SQL database
+  sources only, and like `scd2` it rejects options that read part of a table. Both
+  need a primary key, declared by the table or named with `--primary-key`. dlt 1.31
+  is now the minimum version. `scd2` now also rejects `--interval-start` /
+  `--interval-end` on a `query:` table that binds them, which windowed the read the
+  same way. See [Incremental loading].
+
 ## 2026/10/21 v0.20.0
 
 - Keep datetime normalization compatible with dlt 1.31 while retaining support for
@@ -590,5 +599,6 @@
 
 [dlt-filesystem]: https://github.com/dlt-contrib/dlt-filesystem
 [ingestr v0.14.155]: https://github.com/bruin-data/ingestr/tree/v0.14.155
+[Incremental loading]: getting-started/incremental-loading.md
 [Notifications]: getting-started/notifications.md
 [SCD2]: https://en.wikipedia.org/wiki/Slowly_changing_dimension#Type_2:_add_new_row

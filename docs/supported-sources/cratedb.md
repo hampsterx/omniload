@@ -122,7 +122,8 @@ uvx crash -c 'SELECT * FROM doc.sample'
 
 :::{warning}
 CrateDB supports the `replace` incremental materialization strategy, but
-currently does not support the `delete+insert`, `merge`, or `scd2` strategies.
+currently does not support the `cdc`, `delete+insert`, `merge`, `scd2`, or `upsert`
+strategies.
 :::
 
 ## Appendix

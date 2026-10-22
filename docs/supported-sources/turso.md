@@ -90,7 +90,7 @@ default temporary pipelines directory, each run restores it from the server.
 
 :::{note}
 - **Dispositions**: the destination takes `append` and `replace` only. `merge`,
-  `delete+insert` and `scd2` are refused before anything is written, as are sources
+  `delete+insert`, `scd2`, `upsert` and `cdc` are refused before anything is written, as are sources
   that set a merge disposition on their own resources. dlt merges through a staging
   database it `ATTACH`es, which Turso treats as experimental, and with that enabled
   Turso resolves the merge's database-qualified correlated subquery against the wrong

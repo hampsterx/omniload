@@ -54,3 +54,4 @@ Apprise
 [Cc]onfig
 cron
 ntfy
+[Uu]pserts?

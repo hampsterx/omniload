@@ -140,7 +140,7 @@ def test_filesystem_explicit_none_appends(tmp_path, scheme):
 
 
 @pytest.mark.parametrize("scheme", LOCAL_SCHEMES)
-@pytest.mark.parametrize("strategy", ["merge", "scd2", "delete+insert"])
+@pytest.mark.parametrize("strategy", ["merge", "scd2", "upsert", "delete+insert"])
 def test_filesystem_key_strategies_are_rejected(tmp_path, strategy, scheme):
     """Key-dependent strategies error clearly instead of silently appending: filesystem
     sources can't supply the incremental/merge key these need. The message names the
@@ -154,6 +154,23 @@ def test_filesystem_key_strategies_are_rejected(tmp_path, strategy, scheme):
             source_table="people",
             dest_table="out.people",
             incremental_strategy=strategy,
+            progress="log",
+        )
+
+
+@pytest.mark.parametrize("scheme", LOCAL_SCHEMES)
+def test_filesystem_cdc_is_rejected_as_not_sql(tmp_path, scheme):
+    """cdc is refused for every source that is not a SQL database, ahead of the
+    key-strategy error above, because what rules it out is the source, not the key."""
+    src = _write_people(tmp_path)
+    dest = tmp_path / "wh.duckdb"
+    with pytest.raises(ValidationError, match=f"and '{scheme}' is not one"):
+        run_ingest(
+            source_uri=f"{scheme}://{src}",
+            dest_uri=f"duckdb:///{dest}",
+            source_table="people",
+            dest_table="out.people",
+            incremental_strategy="cdc",
             progress="log",
         )
 
