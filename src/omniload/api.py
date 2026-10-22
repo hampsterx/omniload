@@ -178,7 +178,9 @@ def _first_merging_resource(dlt_source, run_disposition) -> str | None:
     return found[0] if found else None
 
 
-def _require_primary_key(resource, strategy: IncrementalStrategy) -> None:
+def _require_primary_key(
+    resource, strategy: IncrementalStrategy, source_table: str
+) -> None:
     """Raise unless ``resource`` declares a primary key ``strategy`` can match rows on.
 
     A resource whose table hints depend on the data cannot be inspected before it is
@@ -191,10 +193,16 @@ def _require_primary_key(resource, strategy: IncrementalStrategy) -> None:
     except DataItemRequiredForDynamicTableHints:
         return
     if not any(column.get("primary_key") for column in columns.values()):
+        # A `query:` table's resource carries a placeholder name, not one the user wrote.
+        table = (
+            "the query"
+            if source_table.startswith("query:")
+            else f"the '{resource.name}' table"
+        )
         raise ValidationError(
             f"Incremental strategy '{strategy.value}' needs a primary key to match "
-            f"records on, and the '{resource.name}' table declares none. Name its key "
-            "columns with '--primary-key'."
+            f"records on, and {table} declares none. Name its key columns with "
+            "'--primary-key'."
         )
 
 
@@ -937,6 +945,15 @@ def _assemble_and_run(
     if primary_key_merges:
         write_disposition = "merge"
 
+    # dlt stores a table's merge strategy in its schema and leaves it in place when a
+    # later run names none, so a table once loaded with `cdc` would go on deleting
+    # unread rows under a plain `merge` or `delete+insert`. Name the strategy dlt would
+    # default to, the destination's first, so the run loads with the one it asked for.
+    if write_disposition == "merge":
+        strategies = dlt_dest.capabilities().supported_merge_strategies
+        if strategies:
+            write_disposition = {"disposition": "merge", "strategy": strategies[0]}
+
     supports_merge = getattr(destination, "supports_merge", lambda: True)()
     if not supports_merge and _is_merge(write_disposition):
         # Known from the request alone, so `--dry-run` reports it too. Dispositions a
@@ -1074,7 +1091,10 @@ def _assemble_and_run(
         # traceback. A key given with `--primary-key` reaches dlt at `pipeline.run()`
         # rather than on the resource, so it satisfies this outright; otherwise the
         # resource must carry one, as a SQL table with a declared key does by reflection.
-        resource.for_each(dlt_source, lambda x: _require_primary_key(x, merge_strategy))
+        resource.for_each(
+            dlt_source,
+            lambda x: _require_primary_key(x, merge_strategy, source_table),
+        )
 
     if isinstance(destination, AthenaDestination) and jr.partition_by:
         hint.apply_athena_hints(dlt_source, jr.partition_by, column_hints)

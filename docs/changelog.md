@@ -11,7 +11,9 @@
   need a primary key, declared by the table or named with `--primary-key`. dlt 1.31
   is now the minimum version. `scd2` now also rejects `--interval-start` /
   `--interval-end` on a `query:` table that binds them, which windowed the read the
-  same way. See [Incremental loading].
+  same way. A plain `merge` or `delete+insert` now names the destination's default
+  merge strategy, so a table loaded earlier with `cdc` does not keep deleting unread
+  rows under it. See [Incremental loading].
 
 ## 2026/10/21 v0.20.0
 

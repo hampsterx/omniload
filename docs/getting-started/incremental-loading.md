@@ -310,6 +310,8 @@ Upsert inserts the source rows the destination does not have yet and updates the
 
 Upsert needs a primary key. A SQL table that declares one is used as it is; for any other table, name the key columns with `--primary-key` on every run. A run without either is rejected before anything is loaded.
 
+Sources that manage their own incrementality, such as most SaaS and streaming sources, keep their own write dispositions and ignore `upsert`, as they ignore the other strategies.
+
 As it deletes nothing, `upsert` can be combined with `--incremental-key` to read only the rows that changed since the previous run.
 
 The following example upserts the `my_schema.some_data` table from Postgres into DuckDB, matching rows on `id`.
