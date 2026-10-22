@@ -12,8 +12,8 @@
   is now the minimum version. `scd2` now also rejects `--interval-start` /
   `--interval-end` on a `query:` table that binds them, which windowed the read the
   same way. A plain `merge` or `delete+insert` now names the destination's default
-  merge strategy, so a table loaded earlier with `cdc` does not keep deleting unread
-  rows under it. See [Incremental loading].
+  merge strategy, so a strategy an earlier load stored on the table, such as `cdc`,
+  no longer carries over to it. See [Incremental loading].
 
 ## 2026/10/21 v0.20.0
 
