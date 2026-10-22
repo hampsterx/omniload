@@ -4,6 +4,11 @@
 
 - Connector: Verified support for DuckDB 2.x
 
+- Filesystem: An ORC export that PyArrow refuses, such as a time column under
+  `--loader-file-format parquet`, no longer leaves a zero-byte file at the
+  destination path or truncates a file already there. [dlt-filesystem] 0.22 is now
+  the minimum version.
+
 - **Incremental strategies `upsert` and `cdc`.** `upsert` inserts and updates by
   primary key without deleting. `cdc` keeps the destination equal to the source,
   deleting the rows the source no longer holds; it is accepted for SQL database
