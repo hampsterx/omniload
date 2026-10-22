@@ -135,11 +135,20 @@ INTERVAL_QUERY = (
         ),
     ],
 )
-def test_rejects_a_partial_read(tmp_path, strategy, option, kwargs):
+def test_rejects_a_partial_read(tmp_path, monkeypatch, strategy, option, kwargs):
     """scd2 retires and cdc deletes every record a run leaves out, so anything that reads
     only part of the table is refused before the read. A `query:` table binds the
     interval into its placeholders with no incremental key, which windows it all the
-    same. One check serves both strategies, so each option is tried with each."""
+    same. One check serves both strategies, so each option is tried with each.
+
+    Were the refusal to regress, a `query:` case would build a custom-query source,
+    which replaces `table_rows` in dlt for the rest of the process, so it is restored
+    to keep such a failure from spreading to unrelated tests."""
+    import dlt.sources.sql_database
+
+    monkeypatch.setattr(
+        dlt.sources.sql_database, "table_rows", dlt.sources.sql_database.table_rows
+    )
     src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
     _make_sqlite(src, THREE)
 
@@ -440,9 +449,10 @@ def test_cdc_on_an_empty_source_clears_it_with_connectorx(tmp_path):
 )
 def test_a_later_merge_does_not_inherit_cdc(tmp_path, strategy, kwargs):
     """dlt keeps a table's merge strategy in its stored schema when a run names none, so
-    after a cdc load a plain `merge` or `delete+insert` would still run cdc and delete
-    every row it did not read. Each run names its own strategy, so a limited read after
-    cdc leaves the unread rows in place."""
+    after a cdc load a plain `merge` would still run cdc and delete every row it did not
+    read. Each run names its own strategy, so a limited read after cdc leaves the unread
+    rows in place. The `delete+insert` case is a regression assertion only: its own merge
+    key already scopes the stored cdc delete to the keys it loaded."""
     src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
     _make_sqlite(src, THREE)
 
@@ -503,6 +513,52 @@ def test_a_plain_merge_into_a_factory_destination_still_runs(tmp_path):
         dest_table="people",
         incremental_strategy="merge",
         primary_key=["id"],
+        dry_run=True,
+        progress="log",
+    )
+
+
+@pytest.mark.parametrize("strategy", ["cdc", "upsert"])
+@pytest.mark.parametrize(
+    ("dest_uri", "message"),
+    [
+        ("sqlite:///{tmp}/app.db", "Its merge strategies are: delete-insert, scd2"),
+        ("mongodb://localhost:1/db", "It has no merge strategy for it"),
+    ],
+    ids=["sqlalchemy", "mongodb"],
+)
+def test_rejects_a_destination_that_cannot_run_the_strategy(
+    tmp_path, strategy, dest_uri, message
+):
+    """dlt refuses a strategy a SQLAlchemy destination lacks only at the load step, and
+    one with no merge strategy at all is not refused: MongoDB upserts, a bucket appends,
+    and `cdc` deletes nothing. Both are refused up front, on a dry run too."""
+    src = tmp_path / "src.db"
+    _make_sqlite(src, THREE)
+    with pytest.raises(ValidationError, match=message):
+        run_ingest(
+            source_uri=f"sqlite:///{src}",
+            dest_uri=dest_uri.format(tmp=tmp_path),
+            source_table="main.people",
+            dest_table="people",
+            incremental_strategy=strategy,
+            dry_run=True,
+            progress="log",
+        )
+
+
+@pytest.mark.parametrize("strategy", ["cdc", "upsert"])
+def test_a_delta_table_runs_both_strategies(tmp_path, strategy):
+    """Delta Lake's table format carries every dlt merge strategy, so the check reads the
+    destination's selector for the table rather than the bare capability list."""
+    src = tmp_path / "src.db"
+    _make_sqlite(src, THREE)
+    run_ingest(
+        source_uri=f"sqlite:///{src}",
+        dest_uri=f"file+delta://{tmp_path / 'lake'}",
+        source_table="main.people",
+        dest_table="out.people",
+        incremental_strategy=strategy,
         dry_run=True,
         progress="log",
     )
