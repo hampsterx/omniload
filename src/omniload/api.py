@@ -975,6 +975,33 @@ def _assemble_and_run(
             f"{' and '.join(fixes)}."
         )
 
+    # dlt checks a named merge strategy against the destination only at the load step,
+    # and a destination with no merge strategy for the table is not refused at all:
+    # dlt appends instead, or a custom sink merges its own way, so `cdc` would delete
+    # nothing. Check upsert and cdc against what this table supports, up front.
+    if merge_strategy in (IncrementalStrategy.upsert, IncrementalStrategy.cdc):
+        capabilities = pipeline.destination.capabilities()
+        strategies = list(capabilities.supported_merge_strategies or [])
+        if strategies and capabilities.merge_strategies_selector:
+            table_format = destination.dlt_run_params(
+                uri=jr.dest_uri, table=dest_table, staging_bucket=jr.staging_bucket
+            ).get("table_format")
+            strategies = list(
+                capabilities.merge_strategies_selector(
+                    strategies, table_schema={"table_format": table_format}
+                )
+            )
+        if merge_strategy.value not in strategies:
+            raise ValidationError(
+                f"The '{factory.destination_scheme}' destination does not support "
+                f"incremental strategy '{merge_strategy.value}' for this table. "
+                + (
+                    f"Its merge strategies are: {', '.join(strategies)}."
+                    if strategies
+                    else "It has no merge strategy for it."
+                )
+            )
+
     if jr.dry_run:
         logger.info("Skipping data transfer, because `--dry-run` was selected.")
         return None

@@ -308,7 +308,7 @@ SCD2 compares rows by a hash that dlt computes only for row-oriented data, so it
 
 Upsert inserts the source rows the destination does not have yet and updates the ones it already holds, matching them on the primary key. It deletes nothing: a row that disappears from the source stays in the destination. Where `merge` deletes the matching rows and inserts them again on most SQL destinations, `upsert` updates them in place.
 
-Upsert needs a primary key. A SQL table that declares one is used as it is; for any other table, name the key columns with `--primary-key` on every run. A run without either is rejected before anything is loaded.
+Upsert needs a primary key. A SQL table that declares one is used as it is; for any other table, name the key columns with `--primary-key` on every run. A run without either is rejected before the load; `--dry-run` does not check the key.
 
 Sources that manage their own incrementality, such as most SaaS and streaming sources, keep their own write dispositions and ignore `upsert`, as they ignore the other strategies.
 
@@ -349,13 +349,13 @@ omniload ingest \
 ```
 
 :::{caution}
-- An empty source table is handled according to the SQL backend. With `sqlalchemy` and `pyarrow`, which is the default, a run that reads no rows loads nothing and deletes nothing, so the destination keeps the rows it had. With `connectorx`, the same run deletes every row in the destination.
+- An empty source table is handled according to the SQL backend. With `sqlalchemy` and `pyarrow`, which is the default, a run that reads no rows loads nothing and deletes nothing, so the destination keeps the rows it had. With `connectorx`, the same run deletes every row in the destination. A `query:` table is always read with `sqlalchemy`, and `adbcbridge` is not verified.
 - A destination table loaded earlier with `delete+insert` keeps its incremental key as a merge key, and a later `cdc` run then deletes only among the values of that key it has read. Add `--full-refresh` to the first `cdc` run into such a table.
 - Masking a primary-key column with `--mask` changes the key rows are matched on. A mask that draws a fresh value per run deletes and inserts every row again on every run, and a mask that maps two keys to one value merges those rows.
 :::
 
 :::{note}
-Which destinations support `upsert` and `cdc` is up to dlt. With dlt 1.31, both work on BigQuery, Databricks, DuckDB 1.4 or later, MotherDuck, Microsoft SQL Server, Postgres, Snowflake, and Athena with Iceberg tables. ClickHouse, CrateDB, Redshift, Synapse, Turso, and the destinations written through SQLAlchemy, such as MySQL and SQLite, support neither.
+Which destinations support `upsert` and `cdc` is up to dlt. With dlt 1.31, both work on BigQuery, Databricks, DuckDB 1.4 or later, MotherDuck, Microsoft SQL Server, Postgres, Snowflake, Athena with Iceberg tables, and Delta Lake (`file+delta://`, `s3+delta://` and the other `+delta` destinations). ClickHouse, CrateDB, Redshift, Synapse, Turso, MongoDB, the bucket destinations (`s3://`, `gs://`, `az://` and the like), and the destinations written through SQLAlchemy, such as MySQL and SQLite, support neither. omniload rejects either strategy before loading, `--dry-run` included, on a destination that has no such strategy for the table. CrateDB is the exception: it reports Postgres' strategies and fails when the load runs.
 :::
 
 (incremental-loading-filesystem)=
@@ -396,8 +396,9 @@ omniload ingest \
 
 The mode is opt-in, so omitting the flag keeps the append-on-re-run behaviour
 described above. It is append-only: omit `--incremental-strategy` or set it to
-`append`. Combining it with `replace`, `delete+insert`, `merge`, or `scd2` is
-rejected before extraction. Python callers set `filesystem_incremental=True` on
+`append`. Combining it with `replace`, `delete+insert`, `merge`, `scd2`, or
+`upsert` is rejected before extraction, and `cdc` is rejected for every
+filesystem source. Python callers set `filesystem_incremental=True` on
 `run_ingest()`.
 
 The cursor is stored in dlt pipeline state. With omniload's default temporary

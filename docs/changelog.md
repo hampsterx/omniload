@@ -13,7 +13,10 @@
   `--interval-end` on a `query:` table that binds them, which windowed the read the
   same way. A plain `merge` or `delete+insert` now names the destination's default
   merge strategy, so a strategy an earlier load stored on the table, such as `cdc`,
-  no longer carries over to it. See [Incremental loading].
+  no longer carries over to it; a table loaded with `scd2` and then with a plain
+  `merge` is merged with the destination's default and keeps no history for the
+  keys that load reads. `upsert` and `cdc` are rejected up front on a destination
+  that has no such strategy for the table. See [Incremental loading].
 
 ## 2026/10/21 v0.20.0
 

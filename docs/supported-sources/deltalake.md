@@ -211,8 +211,9 @@ batch size.
   table in the URI, so `--source-table` only names the dlt resource.
 - The `lakefs+delta://` and `hdfs+delta://` destinations take no storage options
   from the URI query, because dlt models no credentials for those protocols.
-- The merge, delete-and-insert, and SCD2 strategies need an incremental or merge
-  key, which a whole-table read does not expose.
+- The merge, delete-and-insert, SCD2, and upsert strategies need an incremental or
+  merge key, which a whole-table read does not expose. As a source, Delta Lake also
+  rejects `cdc`, which is for SQL database sources only.
 
 [Delta Lake]: https://delta.io/
 [`polars.scan_delta`]: https://docs.pola.rs/api/python/stable/reference/api/polars.scan_delta.html

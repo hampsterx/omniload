@@ -152,8 +152,10 @@ MERGE_REFUSED = "cannot load with a merge write disposition"
         {"incremental_strategy": "merge", "primary_key": ["id"]},
         {"incremental_strategy": "delete+insert", "incremental_key": "id"},
         {"incremental_strategy": "scd2"},
+        {"incremental_strategy": "upsert", "primary_key": ["id"]},
+        {"incremental_strategy": "cdc"},
     ],
-    ids=["merge", "delete+insert", "scd2"],
+    ids=["merge", "delete+insert", "scd2", "upsert", "cdc"],
 )
 def test_requested_merge_strategies_are_refused_before_loading(tmp_path, kwargs):
     src, dest = tmp_path / "src.db", tmp_path / "app.db"
@@ -169,8 +171,10 @@ def test_requested_merge_strategies_are_refused_before_loading(tmp_path, kwargs)
         {"incremental_strategy": "merge", "primary_key": ["id"]},
         {"incremental_strategy": "delete+insert", "incremental_key": "id"},
         {"incremental_strategy": "scd2"},
+        {"incremental_strategy": "upsert", "primary_key": ["id"]},
+        {"incremental_strategy": "cdc"},
     ],
-    ids=["merge", "delete+insert", "scd2"],
+    ids=["merge", "delete+insert", "scd2", "upsert", "cdc"],
 )
 def test_a_dry_run_reports_a_requested_merge(tmp_path, kwargs):
     src, dest = tmp_path / "src.db", tmp_path / "app.db"

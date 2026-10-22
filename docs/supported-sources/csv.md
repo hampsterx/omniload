@@ -82,8 +82,9 @@ seven things:
   not implement append rejects the load outright rather than duplicating rows;
   the MongoDB destination is one, so a `csv://` to MongoDB command now needs the
   explicit `--incremental-strategy replace`.
-- **`merge`, `delete+insert` and `scd2` are rejected.** They need an
-  incremental or merge key, which the shared reader does not expose. Use a
+- **`merge`, `delete+insert`, `scd2` and `upsert` are rejected.** They need an
+  incremental or merge key, which the shared reader does not expose. `cdc` is
+  rejected too, as for every source that is not a SQL database. Use a
   source that does, or `--full-refresh` to reset the destination.
 - **`--incremental-key` is rejected**, with the same error `file://` gives. The
   row cursor it drove compared raw strings against parsed datetimes and crashed
