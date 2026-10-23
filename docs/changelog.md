@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/10/23 v0.21.0
+
 - Connector: Verified support for DuckDB 2.x
 
 - Filesystem: An ORC export that PyArrow refuses, such as a time column under
