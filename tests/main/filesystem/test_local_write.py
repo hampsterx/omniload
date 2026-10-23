@@ -491,11 +491,7 @@ def test_orc_cannot_take_a_time_column_under_parquet_staging(tmp_path):
     )
     assert failed.exit_code != 0
     assert "time64" in str(failed.output) + str(failed.exception)
-    # `write_orc` opens the path before PyArrow validates the schema, so the rejection
-    # leaves an empty file behind rather than nothing. Asserted as it is rather than as
-    # it should be: the writer predates this suite, and a 0-byte ORC file is refused on
-    # read (`File size too small`), so the failure does not read as a successful export.
-    assert (tmp_path / "staged.orc").stat().st_size == 0
+    assert not (tmp_path / "staged.orc").exists()
 
 
 @pytest.mark.parametrize("out_format", ["feather", "parquet"])
