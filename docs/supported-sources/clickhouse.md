@@ -51,10 +51,10 @@ omniload ingest \
 ```
 
 
-<!-- 
-    see https://github.com/dlt-hub/dlt/issues/2248
--->
+:::{note}
+ClickHouse as a destination does not support the `cdc` or `upsert` incremental
+strategies. omniload rejects them before loading.
 
-:::{warning}
-Clickhouse as a destination currently doesn't support `cdc`, `delete+insert`, `merge`, `scd2` or `upsert` incremental strategies.
+`delete+insert` and `merge` are covered by omniload's integration tests. dlt also
+supports `scd2` for ClickHouse, but omniload does not test that combination.
 :::

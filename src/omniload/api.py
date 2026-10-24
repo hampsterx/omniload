@@ -514,13 +514,20 @@ def _assemble_and_run(
     def validate_loader_file_format(
         dlt_dest, loader_file_format: Optional[LoaderFileFormat]
     ):
-        if (
-            loader_file_format
-            and loader_file_format.value
-            not in dlt_dest.capabilities().supported_loader_file_formats
-        ):
+        if not loader_file_format:
+            return
+        formats = dlt_dest.capabilities().supported_loader_file_formats
+        if loader_file_format.value not in formats:
+            cli_formats = sorted(
+                fmt.value for fmt in LoaderFileFormat if fmt.value in formats
+            )
             raise ValidationError(
-                f"Loader file format {loader_file_format.value} is not supported by the destination, available formats: {dlt_dest.capabilities().supported_loader_file_formats}."
+                f"Loader file format {loader_file_format.value} is not supported by the destination. "
+                + (
+                    f"Supported loader file formats: {', '.join(cli_formats)}."
+                    if cli_formats
+                    else "It has no supported loader file format exposed by '--loader-file-format'."
+                )
             )
 
     def parse_columns(columns: list[str]) -> dict:
@@ -688,7 +695,6 @@ def _assemble_and_run(
         dest_table=dest_table,
         staging_bucket=jr.staging_bucket,
     )
-    validate_loader_file_format(dlt_dest, loader_file_format)
     if dest_table_was_defaulted:
         # A defaulted name carries the source's spelling into a destination that may
         # read its dots differently. A destination that splits on them would claim
@@ -740,6 +746,7 @@ def _assemble_and_run(
         pipelines_dir=pipelines_dir,
         refresh="drop_resources" if jr.full_refresh else None,  # ty: ignore[invalid-argument-type]
     )
+    validate_loader_file_format(pipeline.destination, loader_file_format)
 
     if jr.filesystem_incremental and is_pipelines_dir_temp:
         from dlt.common.destination.client import WithStateSync
@@ -992,13 +999,30 @@ def _assemble_and_run(
                 )
             )
         if merge_strategy.value not in strategies:
+            cli_strategies = {
+                strategy.value
+                for strategy in NAMED_MERGE_STRATEGIES
+                if strategy.value in strategies
+            }
+            # Plain merge and delete+insert both use the unfiltered default above.
+            # Do not suggest one the table selector has removed, or name upsert as
+            # delete+insert merely because the destination defaults to it.
+            default_strategy = (capabilities.supported_merge_strategies or [None])[0]
+            if default_strategy in strategies:
+                cli_strategies.add(IncrementalStrategy.merge.value)
+                if default_strategy == "delete-insert":
+                    cli_strategies.add(IncrementalStrategy.delete_insert.value)
             raise ValidationError(
                 f"The '{factory.destination_scheme}' destination does not support "
                 f"incremental strategy '{merge_strategy.value}' for this table. "
                 + (
-                    f"Its merge strategies are: {', '.join(strategies)}."
-                    if strategies
-                    else "It has no merge strategy for it."
+                    f"Supported incremental strategies for this table: {', '.join(sorted(cli_strategies))}."
+                    if cli_strategies
+                    else (
+                        "It has no merge strategy for it."
+                        if not strategies
+                        else "It has no supported incremental strategy exposed by '--incremental-strategy' for this table."
+                    )
                 )
             )
 
