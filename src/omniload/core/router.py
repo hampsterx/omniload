@@ -313,7 +313,6 @@ class SqlSourceRouter:
                 "sqlalchemy", "pyarrow", "pandas", "connectorx"
             ]
             TQueryAdapter: TypeAlias = Callable[[SelectAny, Table], SelectAny]
-            import dlt
             from dlt.common.typing import TDataItem
 
             # this is a very hacky version of the table_rows function. it is built this way to go around the dlt's table loader.
@@ -388,8 +387,6 @@ class SqlSourceRouter:
                     if getattr(engine, "may_dispose_after_use", False):
                         engine.dispose()
 
-            dlt.sources.sql_database.table_rows = table_rows  # type: ignore
-
             # override the query adapters, the only one we want is the one here in the case of custom queries
             query_adapters = [custom_query_variable_subsitution(query_value, kwargs)]
 
@@ -438,23 +435,36 @@ class SqlSourceRouter:
                     creator=creator,
                 )
 
-        builder_res = self.table_builder(
-            credentials=credentials,
-            schema=table_fields.schema or "",
-            table=table_fields.table,
-            incremental=incremental,
-            backend=sql_backend,
-            backend_kwargs=backend_kwargs,
-            chunk_size=kwargs.get("page_size", None),
-            reflection_level=kwargs.get("sql_reflection_level", None),
-            query_adapter_callback=chained_query_adapter_callback(query_adapters),
-            type_adapter_callback=type_adapter_callback,
-            table_adapter_callback=table_adapter_exclude_columns(
-                kwargs.get("sql_exclude_columns", [])
-            ),
-            defer_table_reflect=defer_table_reflect,
-            engine_adapter_callback=engine_adapter_callback,
-        )
+        from dlt.sources import sql_database
+
+        original_table_rows = None
+        if table.startswith("query:"):
+            original_table_rows = sql_database.table_rows
+            sql_database.table_rows = table_rows  # ty: ignore[invalid-assignment]
+
+        try:
+            builder_res = self.table_builder(
+                credentials=credentials,
+                schema=table_fields.schema or "",
+                table=table_fields.table,
+                incremental=incremental,
+                backend=sql_backend,
+                backend_kwargs=backend_kwargs,
+                chunk_size=kwargs.get("page_size", None),
+                reflection_level=kwargs.get("sql_reflection_level", None),
+                query_adapter_callback=chained_query_adapter_callback(query_adapters),
+                type_adapter_callback=type_adapter_callback,
+                table_adapter_callback=table_adapter_exclude_columns(
+                    kwargs.get("sql_exclude_columns", [])
+                ),
+                defer_table_reflect=defer_table_reflect,
+                engine_adapter_callback=engine_adapter_callback,
+            )
+        finally:
+            # sql_table captures the loader while building the resource, so the
+            # custom query keeps its loader after the module attribute is restored.
+            if original_table_rows is not None:
+                sql_database.table_rows = original_table_rows
 
         builder_res.max_table_nesting = 0
 

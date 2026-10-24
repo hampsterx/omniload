@@ -2,6 +2,11 @@
 
 ## in progress
 
+- SQL: A `query:` source restores dlt's table loader after resource construction,
+  including when construction fails, so a later plain-table load in the same
+  interpreter uses its normal loader. Concurrent SQL resource construction still
+  shares the temporary module-level replacement.
+
 - Validate `--loader-file-format` against the resolved destination, so MongoDB
   accepts `parquet` and refuses `jsonl` without an AttributeError. Destination
   capability errors list the CLI's loader-format and incremental-strategy values.
