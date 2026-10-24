@@ -688,7 +688,6 @@ def _assemble_and_run(
         dest_table=dest_table,
         staging_bucket=jr.staging_bucket,
     )
-    validate_loader_file_format(dlt_dest, loader_file_format)
     if dest_table_was_defaulted:
         # A defaulted name carries the source's spelling into a destination that may
         # read its dots differently. A destination that splits on them would claim
@@ -740,6 +739,7 @@ def _assemble_and_run(
         pipelines_dir=pipelines_dir,
         refresh="drop_resources" if jr.full_refresh else None,  # ty: ignore[invalid-argument-type]
     )
+    validate_loader_file_format(pipeline.destination, loader_file_format)
 
     if jr.filesystem_incremental and is_pipelines_dir_temp:
         from dlt.common.destination.client import WithStateSync
