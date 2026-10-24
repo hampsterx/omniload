@@ -8,6 +8,7 @@ import pytest
 
 from omniload import ValidationError, run_ingest
 from omniload.core.factory import SourceDestinationFactory
+from omniload.target.sqlite import SqliteDestination
 
 
 @pytest.fixture
@@ -21,13 +22,29 @@ def source_db(tmp_path):
 
 def _ingest(source_db, dest_uri, **kwargs):
     kwargs.setdefault("dest_table", "people")
+    kwargs.setdefault("incremental_strategy", "replace")
     return run_ingest(
         source_uri=f"sqlite:///{source_db}",
         source_table="main.people",
         dest_uri=dest_uri,
-        incremental_strategy="replace",
         progress="log",
         **kwargs,
+    )
+
+
+def _capabilities(monkeypatch, **overrides):
+    """Override capabilities on a real destination, retaining pipeline resolution."""
+    destination = SqliteDestination()
+    original = destination.dlt_dest
+
+    def dlt_dest(uri, **kwargs):
+        resolved = original(uri, **kwargs)
+        resolved.caps_params.update(overrides)
+        return resolved
+
+    monkeypatch.setattr(destination, "dlt_dest", dlt_dest)
+    monkeypatch.setattr(
+        SourceDestinationFactory, "get_destination", lambda self: destination
     )
 
 
@@ -53,6 +70,20 @@ def test_mongodb_refuses_jsonl_before_constructing_the_source(
         )
 
     construct.assert_not_called()
+
+
+def test_mongodb_format_suggestions_use_cli_values(source_db):
+    with pytest.raises(ValidationError) as exc:
+        _ingest(
+            source_db,
+            "mongodb://localhost:1/db",
+            loader_file_format="jsonl",
+            dry_run=True,
+        )
+    assert str(exc.value) == (
+        "Loader file format jsonl is not supported by the destination. "
+        "Supported loader file formats: parquet."
+    )
 
 
 @pytest.mark.parametrize("loader_file_format", [None, "parquet"])
@@ -111,3 +142,91 @@ def test_an_instantiated_destination_refuses_an_unsupported_loader_format(
             loader_file_format="insert_values",
             dry_run=dry_run,
         )
+
+
+@pytest.mark.parametrize(
+    ("formats", "message"),
+    [
+        (
+            ["typed-jsonl", "model", "parquet", "csv", "future-format"],
+            "Supported loader file formats: csv, parquet.",
+        ),
+        (
+            ["typed-jsonl", "model", "future-format"],
+            "It has no supported loader file format exposed by '--loader-file-format'.",
+        ),
+    ],
+)
+def test_loader_format_suggestions_omit_dlt_only_names(
+    source_db, tmp_path, monkeypatch, formats, message
+):
+    _capabilities(monkeypatch, supported_loader_file_formats=formats)
+    with pytest.raises(ValidationError) as exc:
+        _ingest(
+            source_db,
+            f"sqlite:///{tmp_path / 'dest.db'}",
+            loader_file_format="insert_values",
+            dry_run=True,
+        )
+    assert str(exc.value) == (
+        "Loader file format insert_values is not supported by the destination. "
+        + message
+    )
+
+
+@pytest.mark.parametrize(
+    ("strategies", "selected", "message"),
+    [
+        (
+            ["delete-insert", "scd2", "upsert", "insert-only", "future-strategy"],
+            None,
+            "Supported incremental strategies for this table: delete+insert, merge, scd2, upsert.",
+        ),
+        (
+            ["delete-insert", "scd2"],
+            ["scd2"],
+            "Supported incremental strategies for this table: scd2.",
+        ),
+        (
+            ["upsert", "delete-insert", "scd2"],
+            None,
+            "Supported incremental strategies for this table: merge, scd2, upsert.",
+        ),
+        (
+            ["insert-only"],
+            None,
+            "Supported incremental strategies for this table: merge.",
+        ),
+        (
+            ["delete-insert", "future-strategy"],
+            ["future-strategy"],
+            "It has no supported incremental strategy exposed by '--incremental-strategy' for this table.",
+        ),
+        (["delete-insert", "scd2"], [], "It has no merge strategy for it."),
+        ([], None, "It has no merge strategy for it."),
+    ],
+)
+def test_incremental_strategy_suggestions_use_selected_cli_values(
+    source_db, tmp_path, monkeypatch, strategies, selected, message
+):
+    def selector(available, *, table_schema):
+        assert available == strategies
+        assert table_schema == {"table_format": None}
+        return selected
+
+    _capabilities(
+        monkeypatch,
+        supported_merge_strategies=strategies,
+        merge_strategies_selector=selector if selected is not None else None,
+    )
+    with pytest.raises(ValidationError) as exc:
+        _ingest(
+            source_db,
+            f"sqlite:///{tmp_path / 'dest.db'}",
+            incremental_strategy="cdc",
+            dry_run=True,
+        )
+    assert str(exc.value) == (
+        "The 'sqlite' destination does not support incremental strategy 'cdc' for this table. "
+        + message
+    )

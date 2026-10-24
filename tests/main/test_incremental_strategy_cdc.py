@@ -522,7 +522,10 @@ def test_a_plain_merge_into_a_factory_destination_still_runs(tmp_path):
 @pytest.mark.parametrize(
     ("dest_uri", "message"),
     [
-        ("sqlite:///{tmp}/app.db", "Its merge strategies are: delete-insert, scd2"),
+        (
+            "sqlite:///{tmp}/app.db",
+            r"Supported incremental strategies for this table: delete\+insert, merge, scd2",
+        ),
         ("mongodb://localhost:1/db", "It has no merge strategy for it"),
         (
             "s3://bucket/prefix?access_key_id=x&secret_access_key=y",
