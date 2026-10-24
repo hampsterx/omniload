@@ -626,11 +626,6 @@ def test_no_secret_reaches_a_report_or_a_warning(
         ],
     }
     dest = f"duckdb:///{tmp_path / 'warehouse.duckdb'}?password={SECRET}"
-    # Reading a `query:` table swaps dlt's `table_rows` for the rest of the process;
-    # put it back afterwards, so later SQL loads in this worker read real tables.
-    import dlt.sources.sql_database as sql_database
-
-    monkeypatch.setattr(sql_database, "table_rows", sql_database.table_rows)
     with caplog.at_level(logging.DEBUG):
         run_ingest(
             source_uri=f"sqlite:///{database}?password={SECRET}",

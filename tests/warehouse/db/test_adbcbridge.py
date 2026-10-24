@@ -271,9 +271,7 @@ def test_postgresql_small_pages_and_a_limit(tmp_path):
 def test_postgresql_custom_query_still_uses_sqlalchemy():
     """A `query:` source is row-oriented by design, whatever backend is named.
 
-    Run in a subprocess: the `query:` path installs its synthetic `table_rows`
-    into dlt's module for the life of the process (see `SqlSourceRouter`), and
-    a later plain-table load in the same interpreter would pick it up.
+    Run in a subprocess to cover the CLI in an independent interpreter.
     """
     source_uri = _postgresql_uri()
     dest_uri = _duckdb_uri()
