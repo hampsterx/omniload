@@ -221,8 +221,7 @@ def test_scd2_ignores_the_backend_for_a_source_that_has_none(tmp_path, monkeypat
 
 def test_scd2_allows_an_arrow_backend_for_a_custom_query(tmp_path):
     """A `query:` table is read with sqlalchemy whichever backend is named, so scd2 has no
-    reason to refuse one. A dry run pins the check on the request without loading, because
-    reading a custom query swaps a function out of dlt for the rest of the process."""
+    reason to refuse one. A dry run pins the check on the request without loading."""
     src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
     _make_sqlite(src, ALICE_BOB)
 

@@ -135,20 +135,11 @@ INTERVAL_QUERY = (
         ),
     ],
 )
-def test_rejects_a_partial_read(tmp_path, monkeypatch, strategy, option, kwargs):
+def test_rejects_a_partial_read(tmp_path, strategy, option, kwargs):
     """scd2 retires and cdc deletes every record a run leaves out, so anything that reads
     only part of the table is refused before the read. A `query:` table binds the
     interval into its placeholders with no incremental key, which windows it all the
-    same. One check serves both strategies, so each option is tried with each.
-
-    Were the refusal to regress, a `query:` case would build a custom-query source,
-    which replaces `table_rows` in dlt for the rest of the process, so it is restored
-    to keep such a failure from spreading to unrelated tests."""
-    import dlt.sources.sql_database
-
-    monkeypatch.setattr(
-        dlt.sources.sql_database, "table_rows", dlt.sources.sql_database.table_rows
-    )
+    same. One check serves both strategies, so each option is tried with each."""
     src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
     _make_sqlite(src, THREE)
 
@@ -462,15 +453,8 @@ def test_a_later_merge_does_not_inherit_cdc(tmp_path, strategy, kwargs):
     assert [r[0] for r in _records(dest)] == [1, 2, 3]
 
 
-def test_the_primary_key_error_names_a_query_as_such(tmp_path, monkeypatch):
-    """A `query:` table's resource has a placeholder name the user never wrote. Building
-    a custom-query source replaces `table_rows` in dlt for the rest of the process, so the
-    test restores it for the tests that run after it."""
-    import dlt.sources.sql_database
-
-    monkeypatch.setattr(
-        dlt.sources.sql_database, "table_rows", dlt.sources.sql_database.table_rows
-    )
+def test_the_primary_key_error_names_a_query_as_such(tmp_path):
+    """A `query:` table's resource has a placeholder name the user never wrote."""
     src, dest = tmp_path / "src.db", tmp_path / "wh.duckdb"
     _make_sqlite(src, THREE, keyed=False)
 

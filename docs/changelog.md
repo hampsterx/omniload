@@ -2,6 +2,11 @@
 
 ## in progress
 
+- SQL: A `query:` source restores dlt's table loader after resource construction,
+  including when construction fails, so a later plain-table load in the same
+  interpreter uses its normal loader. Concurrent SQL resource construction still
+  shares the temporary module-level replacement.
+
 ## 2026/10/23 v0.21.0
 
 - Connector: Verified support for DuckDB 2.x
