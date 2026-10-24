@@ -2,6 +2,12 @@
 
 ## in progress
 
+- Validate `--loader-file-format` against the resolved destination, so MongoDB
+  accepts `parquet` and refuses `jsonl` without an AttributeError. Destination
+  capability errors list the CLI's loader-format and incremental-strategy values.
+  Correct the ClickHouse note: `delete+insert` and `merge` are covered by the
+  integration tests; `cdc` and `upsert` are unsupported, and `scd2` is untested.
+
 ## 2026/10/23 v0.21.0
 
 - Connector: Verified support for DuckDB 2.x
