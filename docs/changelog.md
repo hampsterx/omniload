@@ -2,6 +2,8 @@
 
 ## in progress
 
+## 2026/10/25 v0.21.1
+
 - SQL: A `query:` source restores dlt's table loader after resource construction,
   including when construction fails, so a later plain-table load in the same
   interpreter uses its normal loader. Concurrent SQL resource construction still
