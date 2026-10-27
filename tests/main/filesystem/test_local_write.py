@@ -14,7 +14,12 @@ from omniload.core.factory import SourceDestinationFactory
 from omniload.target.csv import CsvDestination
 from tests.util import invoke_ingest_command
 
-HAVE_VORTEX = importlib.util.find_spec("vortex") is not None
+
+def _skip_missing_writer_extra(out_format):
+    """Keep optional formats out of runs that cannot write or decode them."""
+    module = {"cbor": "cbor2", "msgpack": "msgpack", "vortex": "vortex"}.get(out_format)
+    if module and importlib.util.find_spec(module) is None:
+        pytest.skip(f"Needs the {module} package for {out_format} output")
 
 
 def test_factory_dispatches_file_scheme_to_local_destination():
@@ -51,8 +56,7 @@ def test_file_to_file_round_trip(tmp_path, out_format):
     columns. Runs in the fast unit lane, same as the source's real-read test.
     """
 
-    if out_format == "vortex" and not HAVE_VORTEX:
-        pytest.skip("Needs the vortex extra (vortex-data, Python 3.11+)")
+    _skip_missing_writer_extra(out_format)
 
     _write_source_files(tmp_path)
     out_path = tmp_path / f"out.{out_format}"
@@ -115,8 +119,7 @@ def test_column_missing_from_first_row_survives(tmp_path, out_format):
     (e.g. pa.Table.from_pylist) that would look at the first row only.
     """
 
-    if out_format == "vortex" and not HAVE_VORTEX:
-        pytest.skip("Needs the vortex extra (vortex-data, Python 3.11+)")
+    _skip_missing_writer_extra(out_format)
 
     (tmp_path / "in.csv").write_text("id,name,note\n1,alice,\n2,bob,hi\n")
     out_path = tmp_path / f"out.{out_format}"
@@ -162,8 +165,7 @@ def test_nested_destination_dir_is_created(tmp_path, scheme):
 def test_empty_source_writes_a_file_without_crashing(tmp_path, out_format):
     """A header-only source (zero data rows) still produces an output file."""
 
-    if out_format == "vortex" and not HAVE_VORTEX:
-        pytest.skip("Needs the vortex extra (vortex-data, Python 3.11+)")
+    _skip_missing_writer_extra(out_format)
 
     (tmp_path / "empty.csv").write_text("name,age\n")
     out_path = tmp_path / f"out.{out_format}"
@@ -268,8 +270,7 @@ def test_written_file_reads_back_through_its_own_reader(tmp_path, out_format):
     locale-encoded writer fails here rather than in a user's export.
     """
 
-    if out_format == "vortex" and not HAVE_VORTEX:
-        pytest.skip("Needs the vortex extra (vortex-data, Python 3.11+)")
+    _skip_missing_writer_extra(out_format)
 
     (tmp_path / "in.csv").write_text(
         "name,city\nZoë,München\nBob,Ōtautahi\n", encoding="utf-8"
