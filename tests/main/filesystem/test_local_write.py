@@ -271,6 +271,8 @@ def test_written_file_reads_back_through_its_own_reader(tmp_path, out_format):
     """
 
     _skip_missing_writer_extra(out_format)
+    if out_format == "msgpack" and importlib.util.find_spec("iterable") is None:
+        pytest.skip("Needs iterabledata to read MessagePack output")
 
     (tmp_path / "in.csv").write_text(
         "name,city\nZoë,München\nBob,Ōtautahi\n", encoding="utf-8"
