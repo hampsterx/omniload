@@ -173,9 +173,49 @@ contain secrets: header values in particular (`+Authorization=...` in a
 `json://` or `jsons://` URL) appear unmasked. Do not paste it into a ticket.
 :::
 
-## Opening a GitHub issue on failure
+## Reporting failures to GitHub
 
-Apprise has no GitHub target yet. Its `jsons://` target can call the GitHub
+Apprise 2.1 and later have a `github://` target ([caronc/apprise#1815]).
+Pointed at an existing issue, it adds each report as a comment, which suits a
+nightly job: its failures collect in one thread instead of one issue each.
+
+```yaml
+# notify.yml
+template:
+  - github_token
+urls:
+  - "github://${github_token}@OWNER/REPO/issues/123":
+      tag: failure
+```
+
+```shell
+export APPRISE_TEMPLATE_GITHUB_TOKEN='<token>'
+omniload ingest ... --notify-config notify.yml
+```
+
+Each comment starts with the report's title as a heading. Without the
+`/issues/123` part, each report opens a new issue titled with the report's
+title, and `labels` and `assignees` parameters (comma separated, as in
+`?labels=omniload,nightly`) apply to it. The token needs read and write access
+to the repository's issues: a fine-grained token with "Issues: Read and write",
+a classic token with the `repo` scope, or the `GITHUB_TOKEN` of a GitHub Actions
+job.
+
+:::{important}
+- **Route them by `failure`.** Every report sent to GitHub adds a comment or
+  opens an issue. An inline `--notify` URL receives every outcome, so use these
+  entries from a config file, or inline only together with
+  `--notify-on failure`.
+- **Keep the token out of the file and the shell history.** The examples on
+  this page read it from Apprise's template variable
+  `APPRISE_TEMPLATE_GITHUB_TOKEN`, set by your scheduler or secret store. A
+  config file that holds the token needs tight file permissions. Without a
+  value, the entry cannot resolve, and the check before the load fails.
+:::
+
+### On Apprise 2.0
+
+Apprise 2.0 has no GitHub target. Its `jsons://` target can call the GitHub
 REST API instead, as the Apprise maintainer [showed on the omniload
 tracker][github recipe]:
 
@@ -197,17 +237,6 @@ The `+` parameters set the request headers, `:message=body` renames the report
 body to the field GitHub expects, and the empty `:version=`, `:attachments=` and
 `:type=` drop fields GitHub does not take. Each POST creates a new issue (the
 [GitHub create-an-issue] endpoint), titled with the report's title.
-
-:::{important}
-- **Route it by `failure`.** Every report sent to it opens another issue. An
-  inline `--notify` URL receives every outcome, so use this recipe from a config
-  file, or inline only together with `--notify-on failure`.
-- **Keep the token out of the file and the shell history.** The example reads it
-  from Apprise's template variable `APPRISE_TEMPLATE_GITHUB_TOKEN`, set by your
-  scheduler or secret store. A config file that holds the token needs tight file
-  permissions. Without a value, the entry cannot resolve, and the check before
-  the load fails.
-:::
 
 ## What the report contains
 
@@ -296,5 +325,6 @@ the libraries it sends through.
 [Apprise]: https://github.com/caronc/apprise
 [Apprise config]: https://github.com/caronc/apprise/wiki/config
 [Apprise wiki]: https://github.com/caronc/apprise/wiki
+[caronc/apprise#1815]: https://github.com/caronc/apprise/pull/1815
 [GitHub create-an-issue]: https://docs.github.com/en/rest/issues/issues#create-an-issue
 [github recipe]: https://github.com/panodata/omniload/issues/100#issuecomment-6243654375
