@@ -199,7 +199,7 @@ title, and `labels` and `assignees` parameters (comma separated, as in
 `?labels=omniload,nightly`) apply to it. The token needs read and write access
 to the repository's issues: a fine-grained token with "Issues: Read and write",
 a classic token with the `repo` scope, or the `GITHUB_TOKEN` of a GitHub Actions
-job.
+job in the same repository, granted `issues: write` under `permissions:`.
 
 :::{important}
 - **Route them by `failure`.** Every report sent to GitHub adds a comment or
