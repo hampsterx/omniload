@@ -87,8 +87,8 @@ URIS = [
     ),
     "https://public.example.org/path/to/data.parquet",
     Item(
-        uri="https+webdav://username:password@cloud.example.org:4443/remote.php/webdav",
-        table="path/to/data.parquet",
+        uri="https+webdav://username:password@cloud.example.org:4443",
+        table="remote.php/webdav/path/to/data.parquet",
     ),
     "msgd://site_name/drive_name/path/to/data.parquet?client_id=1d2befad-2f22-4124-a779-b147dfeca342&tenant_id=6b337423-f504-4060-a91b-e9eaaf782609&client_secret=abc~xyz789EXAMPLE_foo",
     f'oci://bucket@namespace/prefix/path/to/data.parquet?iam_type=api_key&config={{"user":"ocid1.user.oc1..24g4uzg","region":"us-ashburn-1","tenancy":"ocid1.tenancy.oc1..23423r3","key_file":"{private_key_file}","fingerprint":"{private_key_fingerprint}"}}',
@@ -111,7 +111,7 @@ URIS = [
     "sharepoint://site_name/drive_name/path/to/data.parquet?client_id=1d2befad-2f22-4124-a779-b147dfeca342&tenant_id=6b337423-f504-4060-a91b-e9eaaf782609&client_secret=abc~xyz789EXAMPLE_foo",
     "smb://workgroup;user:password@server.example.org:445/path/to/data.parquet",
     Item(
-        uri="webhdfs://host:9870/endpoint",
+        uri="webhdfs://host:9870",
         table="path/to/data.parquet",
     ),
 ]
@@ -139,8 +139,8 @@ URIS_UNKNOWN_FORMAT = [
     ),
     "https://public.example.org/path/to/data.unknown",
     Item(
-        uri="https+webdav://username:password@cloud.example.org:4443/remote.php/webdav",
-        table="path/to/data.unknown",
+        uri="https+webdav://username:password@cloud.example.org:4443",
+        table="remote.php/webdav/path/to/data.unknown",
     ),
     "msgd://site_name/drive_name/path/to/data.unknown?client_id=1d2befad-2f22-4124-a779-b147dfeca342&tenant_id=6b337423-f504-4060-a91b-e9eaaf782609&client_secret=abc~xyz789EXAMPLE_foo",
     f'oci://bucket@namespace/prefix/path/to/data.unknown?iam_type=api_key&config={{"user":"ocid1.user.oc1..24g4uzg","region":"us-ashburn-1","tenancy":"ocid1.tenancy.oc1..23423r3","key_file":"{private_key_file}","fingerprint":"{private_key_fingerprint}"}}',
@@ -166,7 +166,7 @@ URIS_UNKNOWN_FORMAT = [
     ),
     "smb://workgroup;user:password@server.example.org:445/path/to/data.unknown",
     Item(
-        uri="webhdfs://host:9870/endpoint",
+        uri="webhdfs://host:9870",
         table="path/to/data.unknown",
     ),
 ]

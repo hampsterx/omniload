@@ -151,8 +151,8 @@ CASES = [
     ),
     Case(
         "https+webdav",
-        "https+webdav://username:password@cloud.example.org:4443/remote.php/webdav",
-        table="path/to/data.parquet",
+        "https+webdav://username:password@cloud.example.org:4443",
+        table="remote.php/webdav/path/to/data.parquet",
         expect_kwargs=("auth",),
     ),
     Case(
@@ -202,7 +202,7 @@ CASES = [
     ),
     Case(
         "webhdfs",
-        "webhdfs://host:9870/endpoint",
+        "webhdfs://host:9870",
         table="path/to/data.parquet",
         expect_kwargs=("host", "port"),
     ),
@@ -337,6 +337,48 @@ def test_resource_options_reach_the_reference(case, tmp_path):
     assert reference.filesystem_incremental is True
     assert reference.column_types == DECLARED_OPTIONS["column_types"]
     assert reference.hints.get("probe_hint") == "from-run"
+
+
+@pytest.mark.parametrize(
+    "scheme, authority, path, bucket_url",
+    [
+        (
+            "https+webdav",
+            "https+webdav://username:password@cloud.example.org:4443",
+            "remote.php/webdav/path/to/data.parquet",
+            "https://cloud.example.org:4443",
+        ),
+        (
+            "webhdfs",
+            "webhdfs://host:9870",
+            "path/to/data.parquet",
+            "webhdfs://host:9870",
+        ),
+    ],
+    ids=["webdav", "webhdfs"],
+)
+@pytest.mark.parametrize("uri_form", [True, False], ids=["uri", "split"])
+@pytest.mark.parametrize(
+    "directive, reader",
+    [("", "read_parquet"), ("#csv_headless", "read_csv_headless")],
+    ids=["extension", "directive"],
+)
+def test_remote_reference_selects_the_requested_file(
+    scheme, authority, path, bucket_url, uri_form, directive, reader, tmp_path
+):
+    """Pin selection and reader construction without making remote requests."""
+    selection = path + directive
+    case = Case(
+        scheme,
+        f"{authority}/{selection}" if uri_form else authority,
+        table="" if uri_form else selection,
+    )
+    reference, _ = _drive(case, tmp_path)
+
+    assert reference.bucket_url == bucket_url
+    assert reference.file_glob == path
+    assert reference.reader_name == reader
+    assert reference.require_file_match is True
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case.scheme)

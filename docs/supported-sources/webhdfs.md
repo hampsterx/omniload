@@ -13,8 +13,11 @@ resource anonymously (`insecure`), or use one of the available authentication
 mechanisms `spnego`, `token`, or `basic-auth`.
 
 ```text
-webhdfs://host:9870/path?token=<TOKEN>
+webhdfs://host:9870/path/to/data.parquet?token=<TOKEN>
 ```
+
+The URI path selects the file. To select it with `--source-table` instead,
+use an authority-only URI such as `webhdfs://host:9870?token=<TOKEN>`.
 
 ## URI parameters
 
@@ -103,7 +106,7 @@ location into a DuckDB database.
 
 ```sh
 omniload ingest \
-    --source-uri   'webhdfs://host:9870/path' \
+    --source-uri   'webhdfs://host:9870' \
     --source-table 'path/to/data.parquet' \
     --dest-uri     'duckdb:///demo.duckdb' \
     --dest-table   'testdrive.data'
@@ -111,7 +114,6 @@ omniload ingest \
 
 Running the command creates a table named `data` within the `testdrive`
 schema in the DuckDB database file located at `demo.duckdb`.
-
 
 [HttpFS]: https://hadoop.apache.org/docs/stable/hadoop-hdfs-httpfs/
 [kerberos_.py]: https://github.com/requests/requests-kerberos/blob/master/requests_kerberos/kerberos_.py
