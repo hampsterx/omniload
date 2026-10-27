@@ -186,7 +186,12 @@ def _read_back(path, out_format):
     encoding still fails here. `test_written_file_reads_back_through_its_own_reader`
     covers the other direction.
     """
-    if out_format == "csv":
+    if out_format == "cbor":
+        import cbor2
+
+        with open(path, "rb") as f:
+            return cbor2.load(f)
+    elif out_format == "csv":
         with open(path, newline="", encoding="utf-8") as f:
             return list(csv.DictReader(f))
     elif out_format == "jsonl":
@@ -207,6 +212,11 @@ def _read_back(path, out_format):
         import pyarrow as pa
 
         return pa.ipc.open_file(path).read_all().to_pylist()
+    elif out_format == "msgpack":
+        import msgpack
+
+        with open(path, "rb") as f:
+            return list(msgpack.Unpacker(f, raw=False))
     elif out_format == "orc":
         import pyarrow.orc as po
 
