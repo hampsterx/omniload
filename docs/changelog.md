@@ -2,6 +2,8 @@
 
 ## in progress
 
+- Updated to dlt 1.32
+
 ## 2026/10/25 v0.21.1
 
 - SQL: A `query:` source restores dlt's table loader after resource construction,
