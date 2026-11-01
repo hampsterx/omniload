@@ -2,8 +2,9 @@
 
 ## in progress
 
-- OCI: Added the `oci` extra and included it in `full`, so `oci://` sources keep
-  working once [dlt-filesystem] moves `ocifs` out of its base install.
+- Filesystem: Added the `oci` extra for `oci://` sources, included in `full`. Once
+  [dlt-filesystem] moves `ocifs` out of its base install, reading from OCI needs
+  `omniload[oci]` or `omniload[full]`.
 
 ## 2026/10/30 v0.22.0
 

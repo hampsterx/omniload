@@ -17,7 +17,8 @@ OCI support ships in the optional `oci` extra:
 pip install 'omniload[oci]'
 ```
 
-The `full` extra includes it.
+The `full` extra includes it. Without the extra, reading from an `oci://` source
+fails with an error naming the package to install.
 
 ## URI format
 
