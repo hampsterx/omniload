@@ -11,14 +11,14 @@ an unlimited amount of unstructured data of any content type.
 
 ## Installation
 
-OCI support ships in the optional `oci` extra:
+To read from OCI, install the `oci` extra:
 
 ```sh
 pip install 'omniload[oci]'
 ```
 
-The `full` extra includes it. Without the extra, reading from an `oci://` source
-fails with an error naming the package to install.
+The `full` extra includes it. If the `ocifs` package is missing, reading from an
+`oci://` source fails with an error naming the package to install.
 
 ## URI format
 
