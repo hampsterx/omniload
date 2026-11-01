@@ -2,6 +2,9 @@
 
 ## in progress
 
+- OCI: Added the `oci` extra and included it in `full`, so `oci://` sources keep
+  working once [dlt-filesystem] moves `ocifs` out of its base install.
+
 ## 2026/10/30 v0.22.0
 
 - Updated to dlt 1.32

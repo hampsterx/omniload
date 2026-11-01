@@ -9,6 +9,16 @@ an unlimited amount of unstructured data of any content type.
 
 `omniload` supports OCI as a data source.
 
+## Installation
+
+OCI support ships in the optional `oci` extra:
+
+```sh
+pip install 'omniload[oci]'
+```
+
+The `full` extra includes it.
+
 ## URI format
 
 The URI for connecting to OCI is structured as follows.
